@@ -1,6 +1,10 @@
 package eu.kanade.tachiyomi.animeextension.all.newpipe
 
+import android.app.Application
 import android.util.Log
+import androidx.preference.ListPreference
+import androidx.preference.PreferenceScreen
+import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
 import eu.kanade.tachiyomi.animesource.model.AnimeFilter
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
 import eu.kanade.tachiyomi.animesource.model.AnimesPage
@@ -24,21 +28,25 @@ import org.schabi.newpipe.extractor.search.SearchInfo
 import org.schabi.newpipe.extractor.stream.AudioTrackType
 import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.schabi.newpipe.extractor.stream.VideoStream
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 
-class NewPipeService(val service: StreamingService) : AnimeHttpSource() {
+class NewPipeService(val service: StreamingService) : AnimeHttpSource(), ConfigurableAnimeSource {
 
     override val name: String = service.serviceInfo.name
     override val baseUrl: String = service.baseUrl
     override val lang = "all"
-    override val supportsLatest = false
+    override val supportsLatest = true
+
+    private val preferences by lazy {
+        Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
+    }
 
     var nextPageUrl: String? = null
 
-    override suspend fun getPopularAnime(page: Int): AnimesPage {
-        NewPipeInit.init(network.client)
-//        val availableKiosksIDs = service.kioskList.availableKiosks
-//        Log.d("AAA", "kiosks: ${availableKiosksIDs.joinToString()}")
-        val kioskExtractor = service.kioskList.getExtractorById(service.kioskList.defaultKioskId, null)
+    fun getKiosk(kiosk: String): AnimesPage {
+        val kioskExtractor = service.kioskList.getExtractorById(kiosk, null)
+
         kioskExtractor.fetchPage()
         val info = KioskInfo.getInfo(kioskExtractor)
 
@@ -51,6 +59,18 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource() {
         }
 
         return AnimesPage(listing, false)
+    }
+
+    override suspend fun getPopularAnime(page: Int): AnimesPage {
+        NewPipeInit.init(network.client)
+        val primaryKiosk = preferences.getString("PRIMARY_KIOSK", null) ?: service.kioskList.defaultKioskId
+        return getKiosk(primaryKiosk)
+    }
+
+    override suspend fun getLatestUpdates(page: Int): AnimesPage {
+        NewPipeInit.init(network.client)
+        val secondaryKiosk = preferences.getString("SECONDARY_KIOSK", null) ?: service.kioskList.defaultKioskId
+        return getKiosk(secondaryKiosk)
     }
 
     inline fun <reified T> Iterable<*>.findInstance() = find { it is T } as? T
@@ -251,6 +271,30 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource() {
                 ?.let { add(SortFilter(it)) }
         },
     )
+
+    override fun setupPreferenceScreen(screen: PreferenceScreen) {
+        val ks = service.kioskList
+
+        if (ks.availableKiosks.isNotEmpty()) {
+            ListPreference(screen.context).apply {
+                key = "PRIMARY_KIOSK"
+                title = "Popular feed"
+                entries = ks.availableKiosks.toTypedArray()
+                entryValues = ks.availableKiosks.toTypedArray()
+                setDefaultValue(ks.defaultKioskId)
+                summary = "%s"
+            }.also(screen::addPreference)
+
+            ListPreference(screen.context).apply {
+                key = "SECONDARY_KIOSK"
+                title = "Latest feed"
+                entries = ks.availableKiosks.toTypedArray()
+                entryValues = ks.availableKiosks.toTypedArray()
+                setDefaultValue(ks.defaultKioskId)
+                summary = "%s"
+            }.also(screen::addPreference)
+        }
+    }
 
     //
 
