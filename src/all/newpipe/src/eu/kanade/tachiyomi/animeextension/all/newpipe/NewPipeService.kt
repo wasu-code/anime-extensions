@@ -67,58 +67,39 @@ class NewPipeService(service: StreamingService) : AnimeHttpSource() {
         NewPipeInit.init(network.client)
         val url = response.request.url.toString()
 
-        return try {
-            // Try parsing as playlist first
-            val playlistInfo = PlaylistInfo.getInfo(url)
-            val anime = SAnime.create().apply {
-                title = playlistInfo.name
-                description = playlistInfo.description.content
-                author = playlistInfo.uploaderName
-                artist = playlistInfo.uploaderName
-                thumbnail_url = playlistInfo.thumbnails.first().url
-                setUrlWithoutDomain(url)
-            }
-            AnimesPage(listOf(anime), false)
+        val info = try {
+            PlaylistInfo.getInfo(url)
         } catch (e: Exception) {
-            // Fallback: try as single video
-            val streamInfo = StreamInfo.getInfo(url)
-            val anime = SAnime.create().apply {
-                title = streamInfo.name
-                description = streamInfo.description.content
-                author = streamInfo.uploaderName
-                artist = streamInfo.uploaderName
-                thumbnail_url = streamInfo.thumbnails.first().url
-                setUrlWithoutDomain(url)
-            }
-            AnimesPage(listOf(anime), false)
+            StreamInfo.getInfo(url)
+        } as StreamInfo
+
+        val anime = SAnime.create().apply {
+            title = info.name
+            description = info.description.content
+            author = info.uploaderName
+            artist = info.uploaderName
+            thumbnail_url = info.thumbnails.first().url
+            setUrlWithoutDomain(url)
         }
+        return AnimesPage(listOf(anime), false)
     }
 
     override fun animeDetailsParse(response: Response): SAnime {
         val url = response.request.url.toString()
 
-        return try {
-            // Try parsing as playlist first
-            val playlistInfo = PlaylistInfo.getInfo(url)
-            SAnime.create().apply {
-                title = playlistInfo.name
-                description = playlistInfo.description.content
-                author = playlistInfo.uploaderName
-                artist = playlistInfo.uploaderName
-                thumbnail_url = playlistInfo.thumbnails.first().url
-                setUrlWithoutDomain(url)
-            }
+        val info = try {
+            PlaylistInfo.getInfo(url)
         } catch (e: Exception) {
-            // Fallback: try as single video
-            val streamInfo = StreamInfo.getInfo(url)
-            SAnime.create().apply {
-                title = streamInfo.name
-                description = streamInfo.description.content
-                author = streamInfo.uploaderName
-                artist = streamInfo.uploaderName
-                thumbnail_url = streamInfo.thumbnails.first().url
-                setUrlWithoutDomain(url)
-            }
+            StreamInfo.getInfo(url)
+        } as StreamInfo
+
+        return SAnime.create().apply {
+            title = info.name
+            description = info.description.content
+            author = info.uploaderName
+            artist = info.uploaderName
+            thumbnail_url = info.thumbnails.first().url
+            setUrlWithoutDomain(url)
         }
     }
 
