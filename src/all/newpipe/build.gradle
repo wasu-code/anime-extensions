@@ -1,0 +1,12 @@
+ext {
+    extName = 'NewPipe'
+    extClass = '.NewPipeFactory'
+    extVersionCode = 1
+    containsNsfw = false
+}
+
+apply from: "$rootDir/common.gradle"
+
+dependencies {
+    implementation("com.github.teamnewpipe:NewPipeExtractor:v0.24.8")
+}
