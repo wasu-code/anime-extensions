@@ -15,7 +15,7 @@ class NewPipeUrlHandlerActivity : Activity() {
 
         val mainIntent = Intent().apply {
             action = "eu.kanade.tachiyomi.ANIMESEARCH"
-            //TODO if query ends with _ or - it will be trimmed in query in Aniyomi
+            // TODO if query ends with _ or - it will be trimmed in query in Aniyomi
             putExtra("query", url)
             putExtra("filter", packageName)
         }
