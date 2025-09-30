@@ -9,7 +9,6 @@ import eu.kanade.tachiyomi.animesource.model.SEpisode
 import eu.kanade.tachiyomi.animesource.model.Track
 import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.animesource.online.AnimeHttpSource
-import eu.kanade.tachiyomi.network.GET
 import okhttp3.Request
 import okhttp3.Response
 import org.schabi.newpipe.extractor.InfoItem
@@ -19,6 +18,7 @@ import org.schabi.newpipe.extractor.StreamingService.LinkType.PLAYLIST
 import org.schabi.newpipe.extractor.StreamingService.LinkType.STREAM
 import org.schabi.newpipe.extractor.channel.ChannelInfo
 import org.schabi.newpipe.extractor.feed.FeedInfo
+import org.schabi.newpipe.extractor.kiosk.KioskInfo
 import org.schabi.newpipe.extractor.playlist.PlaylistInfo
 import org.schabi.newpipe.extractor.search.SearchInfo
 import org.schabi.newpipe.extractor.stream.AudioTrackType
@@ -34,9 +34,24 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource() {
 
     var nextPageUrl: String? = null
 
-    override fun popularAnimeRequest(page: Int): Request = GET(baseUrl)
+    override suspend fun getPopularAnime(page: Int): AnimesPage {
+        NewPipeInit.init(network.client)
+//        val availableKiosksIDs = service.kioskList.availableKiosks
+//        Log.d("AAA", "kiosks: ${availableKiosksIDs.joinToString()}")
+        val kioskExtractor = service.kioskList.getExtractorById(service.kioskList.defaultKioskId, null)
+        kioskExtractor.fetchPage()
+        val info = KioskInfo.getInfo(kioskExtractor)
 
-    override fun popularAnimeParse(response: Response): AnimesPage = AnimesPage(emptyList(), false)
+        val listing = info.relatedItems.map { item ->
+            SAnime.create().apply {
+                title = item.name
+                thumbnail_url = item.thumbnails.last().url
+                setUrlWithoutDomain(item.url)
+            }
+        }
+
+        return AnimesPage(listing, false)
+    }
 
     inline fun <reified T> Iterable<*>.findInstance() = find { it is T } as? T
 
@@ -216,7 +231,6 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource() {
             .map { Track(it.content, "${it.audioTrackName} ${it.audioTrackType} ${it.format} ${it.bitrate}") }
 
         return info.videoOnlyStreams.map { stream: VideoStream ->
-            Log.d("AAA", stream.quality.toString() + info.audioStreams.filter { it.quality == stream.quality }.size.toString())
             Video(
                 stream.content,
                 "${stream.quality} (${stream.resolution}) ${stream.format}",
@@ -251,4 +265,6 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource() {
     override fun animeDetailsParse(response: Response): SAnime = throw UnsupportedOperationException("Not Used")
     override fun episodeListParse(response: Response): List<SEpisode> = throw UnsupportedOperationException("Not Used")
     override fun videoListParse(response: Response): List<Video> = throw UnsupportedOperationException("Not Used")
+    override fun popularAnimeRequest(page: Int): Request = throw UnsupportedOperationException("Not Used")
+    override fun popularAnimeParse(response: Response): AnimesPage = throw UnsupportedOperationException("Not Used")
 }
