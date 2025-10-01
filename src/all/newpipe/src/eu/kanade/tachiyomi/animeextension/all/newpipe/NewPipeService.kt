@@ -44,11 +44,17 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource(), Configu
 
     var nextPageUrl: String? = null
 
-    fun getKiosk(kiosk: String): AnimesPage {
-        val kioskExtractor = service.kioskList.getExtractorById(kiosk, null)
+    fun getKiosk(kiosk: String, page: Int): AnimesPage {
+//        val kioskExtractor = if (page > 1) {
+//            service.kioskList.getExtractorByUrl(nextPageUrl, null)
+//        } else {
+//            service.kioskList.getExtractorById(kiosk, null)
+//        }
 
+        val kioskExtractor = service.kioskList.getExtractorById(kiosk, null)
         kioskExtractor.fetchPage()
         val info = KioskInfo.getInfo(kioskExtractor)
+//        if (info.hasNextPage()) nextPageUrl = info.nextPage.url
 
         val listing = info.relatedItems.map { item ->
             SAnime.create().apply {
@@ -64,16 +70,14 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource(), Configu
     override suspend fun getPopularAnime(page: Int): AnimesPage {
         NewPipeInit.init(network.client)
         val primaryKiosk = preferences.getString("PRIMARY_KIOSK", null) ?: service.kioskList.defaultKioskId
-        return getKiosk(primaryKiosk)
+        return getKiosk(primaryKiosk, page)
     }
 
     override suspend fun getLatestUpdates(page: Int): AnimesPage {
         NewPipeInit.init(network.client)
         val secondaryKiosk = preferences.getString("SECONDARY_KIOSK", null) ?: service.kioskList.defaultKioskId
-        return getKiosk(secondaryKiosk)
+        return getKiosk(secondaryKiosk, page)
     }
-
-    inline fun <reified T> Iterable<*>.findInstance() = find { it is T } as? T
 
     override suspend fun getSearchAnime(
         page: Int,
@@ -235,28 +239,41 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource(), Configu
         val info = StreamInfo.getInfo(url)
 
         // info.streamSegments
-        // info.videoOnlyStreams
         Log.d("AAA", info.audioStreams.size.toString())
         Log.d("AAA", info.subtitles.size.toString())
         Log.d("AAA", info.videoStreams.size.toString())
         Log.d("AAA", info.videoOnlyStreams.size.toString())
 
-        val subtitleTracks = info.subtitles.mapNotNull {
-            Track(
-                it.content,
-                it.locale.language,
-            ).takeUnless { it2 -> !it.isUrl }
-        }
-        val audioTracks = info.audioStreams.sortedByDescending { it.audioTrackType == AudioTrackType.ORIGINAL }
-            .map { Track(it.content, "${it.audioTrackName} ${it.audioTrackType} ${it.format} ${it.bitrate}") }
+//        val subtitleTracks = info.subtitles.map {Track(it.content, it.locale.language + it.format,) }
 
-        return info.videoOnlyStreams.map { stream: VideoStream ->
+//        val audioTracks = info.audioStreams.sortedByDescending { it.audioTrackType == AudioTrackType.ORIGINAL }
+//            .map { Track(it.content, "${it.audioTrackName} ${it.audioTrackType} ${it.format} ${it.bitrate}") }
+
+        val audioTracks = info.audioStreams
+            .groupBy { it.audioLocale?.language ?: "und" } // group by language code
+            .map { (_, group) ->
+                // Pick the "best" from each group. Example: prefer ORIGINAL, then highest bitrate
+                group.maxByOrNull { stream ->
+                    val score = if (stream.audioTrackType == AudioTrackType.ORIGINAL) 1_000_000 else 0
+                    score + stream.bitrate
+                }!!
+            }
+            .sortedByDescending { it.audioTrackType == AudioTrackType.ORIGINAL } // put Original first
+            .map { stream ->
+                Track(
+                    stream.content,
+                    "${stream.audioTrackName} ${stream.audioTrackType}", // Locale(stream.audioLocale?.language ?: "und").isO3Language
+                )
+            }
+
+        val videos = listOf(info.videoOnlyStreams, info.videoStreams).maxBy { it.size }
+        return videos.map { stream: VideoStream ->
             Video(
                 stream.content,
                 "${stream.quality} (${stream.resolution}) ${stream.format}",
                 stream.content,
 //                subtitleTracks = subtitleTracks.filterNotNull(),
-                audioTracks = audioTracks.subList(0, 1), // currently only first to speedup loading
+                audioTracks = audioTracks,
             )
         }
     }

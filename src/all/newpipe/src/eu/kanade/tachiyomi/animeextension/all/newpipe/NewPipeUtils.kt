@@ -22,6 +22,8 @@ fun Description.plainText(): String = when (this.type) {
 class SortFilter(entries: Array<String>) : AnimeFilter.Select<String>("Sort", entries, 0)
 class ContentFilter(entries: Array<String>) : AnimeFilter.Select<String>("Content", entries, 0)
 
+inline fun <reified T> Iterable<*>.findInstance() = find { it is T } as? T
+
 object NewPipeInit {
     private var initialized = false
 
