@@ -1,9 +1,12 @@
 package eu.kanade.tachiyomi.animeextension.all.newpipe
 
 import android.app.Application
+import android.content.Intent
 import android.util.Log
+import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
 import androidx.preference.PreferenceScreen
+import androidx.preference.SwitchPreferenceCompat
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
 import eu.kanade.tachiyomi.animesource.model.AnimeFilter
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
@@ -42,6 +45,8 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource(), Configu
     private val preferences by lazy {
         Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
     }
+
+    private val context by lazy { Injekt.get<Application>() }
 
     var nextPageUrl: String? = null
 
@@ -314,6 +319,28 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource(), Configu
                 summary = "%s"
             }.also(screen::addPreference)
         }
+
+        EditTextPreference(screen.context).apply {
+            summary = "Common settings"
+            setEnabled(false)
+        }.also(screen::addPreference)
+
+        SwitchPreferenceCompat(screen.context).apply {
+            key = "HANDLE_SHARE"
+            title = "Allow opening from 'Share with...' dialog"
+            summary = "Applies to all sources in this extension.\nToggling it for one source won't reflect in others but will apply to all of them"
+            setDefaultValue(true)
+            setOnPreferenceChangeListener { _, newValue ->
+                val intent = Intent().apply {
+                    val handlerClass = ShareHandlerToggleActivity::class.java
+                    setClassName(handlerClass.`package`!!.name, handlerClass.name)
+                    putExtra("extra_enable", newValue as Boolean)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+                true
+            }
+        }.also(screen::addPreference)
     }
 
     //

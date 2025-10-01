@@ -40,5 +40,11 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".all.newpipe.ShareHandlerToggleActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.NoDisplay" />
+
     </application>
 </manifest>

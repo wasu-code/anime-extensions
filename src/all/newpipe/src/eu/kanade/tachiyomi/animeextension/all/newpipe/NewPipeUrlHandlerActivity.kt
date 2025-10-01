@@ -1,7 +1,9 @@
 package eu.kanade.tachiyomi.animeextension.all.newpipe
 
 import android.app.Activity
+import android.content.ComponentName
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import kotlin.system.exitProcess
@@ -48,4 +50,25 @@ class NewPipeShareHandlerActivity : Activity() {
 fun urlWithSafeEnding(url: Uri?): String {
     val length = url?.query?.length
     return if (length != null && length > 0) "$url&" else "$url?"
+}
+
+class ShareHandlerToggleActivity : Activity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        val enable = intent.getBooleanExtra("extra_enable", true)
+        val componentName = ComponentName(
+            this,
+            "eu.kanade.tachiyomi.animeextension.all.newpipe.NewPipeShareHandlerActivity",
+        )
+        packageManager.setComponentEnabledSetting(
+            componentName,
+            if (enable) {
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+            } else
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+            PackageManager.DONT_KILL_APP,
+        )
+        finish()
+    }
 }
