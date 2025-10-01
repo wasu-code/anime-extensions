@@ -16,6 +16,7 @@ import eu.kanade.tachiyomi.animesource.online.AnimeHttpSource
 import okhttp3.Request
 import okhttp3.Response
 import org.schabi.newpipe.extractor.InfoItem
+import org.schabi.newpipe.extractor.NewPipe
 import org.schabi.newpipe.extractor.StreamingService
 import org.schabi.newpipe.extractor.StreamingService.LinkType.CHANNEL
 import org.schabi.newpipe.extractor.StreamingService.LinkType.PLAYLIST
@@ -84,21 +85,23 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource(), Configu
         query: String,
         filters: AnimeFilterList,
     ): AnimesPage {
-        // Handle valid URL provided as query
-        if (query.contains(baseUrl)) {
-            return AnimesPage(
-                listOf(
-                    SAnime.create().apply {
-                        title = ""
-                        setUrlWithoutDomain(query)
-                    },
-                ),
-                false,
-            )
+        // Handle URL provided as query
+        if (query.startsWith("http")) {
+            val serviceFromQuery = NewPipe.getServiceByUrl(query)
+            if (serviceFromQuery == service) {
+                return AnimesPage(
+                    listOf(
+                        SAnime.create().apply {
+                            title = ""
+                            setUrlWithoutDomain(query.trimEnd('?', '&')) // ensure same url as from listings
+                        },
+                    ),
+                    false,
+                )
+            } else {
+                throw UnsupportedOperationException("Unsupported URL")
+            }
         }
-
-        // Skip incompatible URL provided as query
-        if (query.startsWith("http")) throw UnsupportedOperationException("Unsupported URL")
 
         // Perform search
         NewPipeInit.init(network.client)
