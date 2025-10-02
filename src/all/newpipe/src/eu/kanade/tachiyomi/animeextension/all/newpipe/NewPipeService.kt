@@ -210,11 +210,7 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource(), Configu
                     SEpisode.create().apply {
                         name = info.name
                         episode_number = 1f
-//                        date_upload = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-//                            info.uploadDate?.offsetDateTime()?.toEpochSecond() ?: 0L
-//                        } else {
-//                            0L
-//                        }
+                        date_upload = parseDate(info.uploadDate?.offsetDateTime().toString())
                         setUrlWithoutDomain(url)
                     },
                 )
@@ -225,11 +221,7 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource(), Configu
                     SEpisode.create().apply {
                         name = stream.name
                         episode_number = (index + 1).toFloat()
-//                        date_upload = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-//                            stream.uploadDate?.offsetDateTime()?.toEpochSecond() ?: 0L
-//                        } else {
-//                            0L
-//                        }
+                        date_upload = parseDate(stream.uploadDate?.offsetDateTime().toString())
                         setUrlWithoutDomain(stream.url)
                     }
                 }.reversed()

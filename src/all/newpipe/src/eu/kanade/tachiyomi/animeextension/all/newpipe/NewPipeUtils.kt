@@ -12,6 +12,8 @@ import org.schabi.newpipe.extractor.stream.Description
 import org.schabi.newpipe.extractor.stream.Description.HTML
 import org.schabi.newpipe.extractor.stream.Description.MARKDOWN
 import org.schabi.newpipe.extractor.stream.Description.PLAIN_TEXT
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 fun Description.plainText(): String = when (this.type) {
     PLAIN_TEXT, MARKDOWN -> this.content
@@ -23,6 +25,14 @@ class SortFilter(entries: Array<String>) : AnimeFilter.Select<String>("Sort", en
 class ContentFilter(entries: Array<String>) : AnimeFilter.Select<String>("Content", entries, 0)
 
 inline fun <reified T> Iterable<*>.findInstance() = find { it is T } as? T
+
+/** Parse the date-time part without the offset */
+fun parseDate(dateString: String) = try {
+    val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+    sdf.parse(dateString.take(19))?.time ?: 0L
+} catch (e: Exception) {
+    0L
+}
 
 object NewPipeInit {
     private var initialized = false
