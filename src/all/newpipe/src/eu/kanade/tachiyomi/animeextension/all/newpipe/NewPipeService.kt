@@ -62,7 +62,7 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource(), Configu
         val info = KioskInfo.getInfo(kioskExtractor)
 //        if (info.hasNextPage()) nextPageUrl = info.nextPage.url
 
-        val listing = info.relatedItems.map { item ->
+        val listing = (info.relatedItems as List<InfoItem>).map { item ->
             SAnime.create().apply {
                 title = item.name
                 thumbnail_url = item.thumbnails.last().url
