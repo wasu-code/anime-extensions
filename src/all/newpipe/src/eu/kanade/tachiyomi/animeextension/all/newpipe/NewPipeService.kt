@@ -20,6 +20,7 @@ import okhttp3.Request
 import okhttp3.Response
 import org.schabi.newpipe.extractor.InfoItem
 import org.schabi.newpipe.extractor.NewPipe
+import org.schabi.newpipe.extractor.Page
 import org.schabi.newpipe.extractor.StreamingService
 import org.schabi.newpipe.extractor.StreamingService.LinkType.CHANNEL
 import org.schabi.newpipe.extractor.StreamingService.LinkType.PLAYLIST
@@ -66,21 +67,43 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource(), Configu
         NewPipeInit.init(network.client)
     }
 
-    var nextPage = null
+    var nextPage: Page? = null
+    var originalUrl: String? = null
 
     fun getKiosk(kiosk: String, page: Int): AnimesPage {
-//        val kioskExtractor = if (page > 1) {
-//            service.kioskList.getExtractorByUrl(nextPageUrl, null)
-//        } else {
-//            service.kioskList.getExtractorById(kiosk, null)
-//        }
+        data class PageResult(
+            val items: List<InfoItem>,
+            val nextPage: Page?,
+            val hasNextPage: Boolean,
+            val originalUrl: String?,
+        )
 
-        val kioskExtractor = service.kioskList.getExtractorById(kiosk, null)
-        kioskExtractor.fetchPage()
-        val info = KioskInfo.getInfo(kioskExtractor)
-//        if (info.hasNextPage()) nextPageUrl = info.nextPage.url
+        val result = if (page > 1) {
+            val info = KioskInfo.getMoreItems(service, originalUrl, nextPage)
+            PageResult(
+                info.items,
+                info.nextPage,
+                info.hasNextPage(),
+                originalUrl = originalUrl,
+            )
+        } else {
+            val kioskExtractor = service.kioskList.getExtractorById(kiosk, null)
+            kioskExtractor.fetchPage()
+            val info = KioskInfo.getInfo(kioskExtractor)
+            PageResult(
+                info.relatedItems,
+                info.nextPage,
+                info.hasNextPage(),
+                originalUrl = info.originalUrl,
+            )
+        }
 
-        val listing = (info.relatedItems as List<InfoItem>).map { item ->
+        if (result.hasNextPage) {
+            nextPage = result.nextPage
+            originalUrl = result.originalUrl
+        }
+
+        val listing = result.items.map { item ->
             SAnime.create().apply {
                 title = item.name
                 thumbnail_url = item.thumbnails.last().url
@@ -88,7 +111,7 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource(), Configu
             }
         }
 
-        return AnimesPage(listing, false)
+        return AnimesPage(listing, result.hasNextPage)
     }
 
     override suspend fun getPopularAnime(page: Int): AnimesPage {
@@ -249,6 +272,8 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource(), Configu
                         setUrlWithoutDomain(item.url)
                     }
                 }
+//                ChannelTabInfo.getMoreItems(service,
+//                    listLinkHandler, nextPage));
                 // TODO pagination
             }
             else -> throw UnsupportedOperationException("Unsupported episode type")
