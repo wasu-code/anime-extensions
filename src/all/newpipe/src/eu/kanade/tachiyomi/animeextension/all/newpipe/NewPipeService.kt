@@ -29,11 +29,14 @@ import org.schabi.newpipe.extractor.feed.FeedInfo
 import org.schabi.newpipe.extractor.kiosk.KioskInfo
 import org.schabi.newpipe.extractor.playlist.PlaylistInfo
 import org.schabi.newpipe.extractor.search.SearchInfo
+import org.schabi.newpipe.extractor.services.soundcloud.SoundcloudParsingHelper
+import org.schabi.newpipe.extractor.services.soundcloud.SoundcloudService
 import org.schabi.newpipe.extractor.stream.AudioTrackType
 import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.schabi.newpipe.extractor.stream.VideoStream
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import java.lang.reflect.Field
 
 class NewPipeService(val service: StreamingService) : AnimeHttpSource(), ConfigurableAnimeSource {
 
@@ -45,8 +48,19 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource(), Configu
     private val preferences by lazy {
         Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
     }
-
     private val context by lazy { Injekt.get<Application>() }
+
+    init {
+        if (service is SoundcloudService) {
+            val clientID = preferences.getString("CLIENT_ID", null)
+            if (!clientID.isNullOrBlank()) {
+                val field: Field = SoundcloudParsingHelper::class.java.getDeclaredField("clientId")
+                field.isAccessible = true
+                field.set(null, clientID)
+            }
+        }
+        NewPipeInit.init(network.client)
+    }
 
     var nextPageUrl: String? = null
 
@@ -74,13 +88,11 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource(), Configu
     }
 
     override suspend fun getPopularAnime(page: Int): AnimesPage {
-        NewPipeInit.init(network.client)
         val primaryKiosk = preferences.getString("PRIMARY_KIOSK", null) ?: service.kioskList.defaultKioskId
         return getKiosk(primaryKiosk, page)
     }
 
     override suspend fun getLatestUpdates(page: Int): AnimesPage {
-        NewPipeInit.init(network.client)
         val secondaryKiosk = preferences.getString("SECONDARY_KIOSK", null) ?: service.kioskList.defaultKioskId
         return getKiosk(secondaryKiosk, page)
     }
@@ -109,7 +121,6 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource(), Configu
         }
 
         // Perform search
-        NewPipeInit.init(network.client)
         val contentFilterState: Int = filters.findInstance<ContentFilter>()?.state ?: 0
         val sortFilterState: Int = filters.findInstance<SortFilter>()?.state ?: 0
         val contentFilter =
@@ -149,7 +160,6 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource(), Configu
     }
 
     override suspend fun getAnimeDetails(anime: SAnime): SAnime {
-        NewPipeInit.init(network.client)
         val url = baseUrl + anime.url
 
         return when (service.getLinkTypeByUrl(url)) {
@@ -188,7 +198,6 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource(), Configu
     }
 
     override suspend fun getEpisodeList(anime: SAnime): List<SEpisode> {
-        NewPipeInit.init(network.client)
         val url = baseUrl + anime.url
 
         return when (service.getLinkTypeByUrl(url)) {
@@ -241,7 +250,6 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource(), Configu
     }
 
     override suspend fun getVideoList(episode: SEpisode): List<Video> {
-        NewPipeInit.init(network.client)
         val url = baseUrl + episode.url
 
         val info = StreamInfo.getInfo(url)
@@ -317,6 +325,14 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource(), Configu
                 entryValues = ks.availableKiosks.toTypedArray()
                 setDefaultValue(ks.defaultKioskId)
                 summary = "%s"
+            }.also(screen::addPreference)
+        }
+
+        if (service is SoundcloudService) {
+            EditTextPreference(screen.context).apply {
+                key = "CLIENT_ID"
+                title = "Client ID"
+                summary = "Inspect SoundCloud website and look for client_id"
             }.also(screen::addPreference)
         }
 
