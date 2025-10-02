@@ -25,7 +25,8 @@ import org.schabi.newpipe.extractor.StreamingService.LinkType.CHANNEL
 import org.schabi.newpipe.extractor.StreamingService.LinkType.PLAYLIST
 import org.schabi.newpipe.extractor.StreamingService.LinkType.STREAM
 import org.schabi.newpipe.extractor.channel.ChannelInfo
-import org.schabi.newpipe.extractor.feed.FeedInfo
+import org.schabi.newpipe.extractor.channel.tabs.ChannelTabInfo
+import org.schabi.newpipe.extractor.channel.tabs.ChannelTabs
 import org.schabi.newpipe.extractor.kiosk.KioskInfo
 import org.schabi.newpipe.extractor.playlist.PlaylistInfo
 import org.schabi.newpipe.extractor.search.SearchInfo
@@ -65,7 +66,7 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource(), Configu
         NewPipeInit.init(network.client)
     }
 
-    var nextPageUrl: String? = null
+    var nextPage = null
 
     fun getKiosk(kiosk: String, page: Int): AnimesPage {
 //        val kioskExtractor = if (page > 1) {
@@ -229,16 +230,26 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource(), Configu
             }
             CHANNEL -> {
                 val info = ChannelInfo.getInfo(url)
-                val feed = FeedInfo.getInfo(info.feedUrl)
-                feed.relatedItems.mapIndexed { index, stream ->
+                val tabs = info.tabs
+                // for channels show only playlists or albums (eventually videos)
+                val preferredTab = tabs.find { it.url.contains(ChannelTabs.PLAYLISTS) }
+                    ?: tabs.find { it.url.contains(ChannelTabs.ALBUMS) }
+                    ?: tabs.find { it.url.contains(ChannelTabs.VIDEOS) }
+
+                preferredTab ?: return emptyList()
+
+                val tabInfo = ChannelTabInfo.getInfo(
+                    service,
+                    preferredTab,
+                )
+
+                tabInfo.relatedItems.mapIndexed { index, item ->
                     SEpisode.create().apply {
-                        name = stream.name
-                        episode_number = (index + 1).toFloat()
-                        setUrlWithoutDomain(stream.url)
+                        name = "${item.infoType.getIcon()} | ${item.name}"
+                        setUrlWithoutDomain(item.url)
                     }
                 }
-                // TODO make amount of feed pages configurable
-                // feed.nextPage.url
+                // TODO pagination
             }
             else -> throw UnsupportedOperationException("Unsupported episode type")
         }

@@ -5,6 +5,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.jsoup.Jsoup
+import org.schabi.newpipe.extractor.InfoItem
 import org.schabi.newpipe.extractor.NewPipe
 import org.schabi.newpipe.extractor.downloader.Downloader
 import org.schabi.newpipe.extractor.downloader.Response
@@ -32,6 +33,13 @@ fun parseDate(dateString: String) = try {
     sdf.parse(dateString.take(19))?.time ?: 0L
 } catch (e: Exception) {
     0L
+}
+
+fun InfoItem.InfoType.getIcon() = when (this) {
+    InfoItem.InfoType.PLAYLIST -> "≔"
+    InfoItem.InfoType.CHANNEL -> "👤"
+    InfoItem.InfoType.STREAM -> "▶"
+    InfoItem.InfoType.COMMENT -> "💬"
 }
 
 object NewPipeInit {
