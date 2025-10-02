@@ -48,6 +48,9 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource(), Configu
     private val preferences by lazy {
         Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
     }
+    private val commonPreferences by lazy {
+        Injekt.get<Application>().getSharedPreferences("source_newpipe", 0x0000)
+    }
     private val context by lazy { Injekt.get<Application>() }
 
     init {
@@ -341,10 +344,12 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource(), Configu
             setEnabled(false)
         }.also(screen::addPreference)
 
+        val switchValue = commonPreferences.getBoolean("HANDLE_SHARE", true)
+        preferences.edit().putBoolean("HANDLE_SHARE", switchValue).apply()
         SwitchPreferenceCompat(screen.context).apply {
             key = "HANDLE_SHARE"
             title = "Allow opening from 'Share with...' dialog"
-            summary = "Applies to all sources in this extension.\nToggling it for one source won't reflect in others but will apply to all of them"
+            summary = "Applies to all sources in this extension"
             setDefaultValue(true)
             setOnPreferenceChangeListener { _, newValue ->
                 val intent = Intent().apply {
@@ -354,6 +359,8 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource(), Configu
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 context.startActivity(intent)
+
+                commonPreferences.edit().putBoolean("HANDLE_SHARE", newValue as Boolean).apply()
                 true
             }
         }.also(screen::addPreference)

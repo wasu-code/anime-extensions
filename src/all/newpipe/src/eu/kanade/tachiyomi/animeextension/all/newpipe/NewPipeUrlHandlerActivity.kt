@@ -59,7 +59,7 @@ class ShareHandlerToggleActivity : Activity() {
         val enable = intent.getBooleanExtra("extra_enable", true)
         val componentName = ComponentName(
             this,
-            "eu.kanade.tachiyomi.animeextension.all.newpipe.NewPipeShareHandlerActivity",
+            NewPipeShareHandlerActivity::class.java,
         )
         packageManager.setComponentEnabledSetting(
             componentName,
