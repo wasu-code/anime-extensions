@@ -241,7 +241,16 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource(), Configu
             }
             PLAYLIST -> {
                 val playlist = PlaylistInfo.getInfo(url)
-                playlist.relatedItems.mapIndexed { index, stream ->
+                val items = playlist.relatedItems.toMutableList()
+
+                var nextPage: Page? = playlist.nextPage
+                while (nextPage != null) {
+                    val i = PlaylistInfo.getMoreItems(service, url, nextPage)
+                    items.addAll(i.items)
+                    nextPage = i.nextPage
+                }
+
+                items.mapIndexed { index, stream ->
                     SEpisode.create().apply {
                         name = stream.name
                         episode_number = (index + 1).toFloat()
@@ -249,7 +258,6 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource(), Configu
                         setUrlWithoutDomain(stream.url)
                     }
                 }.reversed()
-                // TODO if has playlist.nextPage
             }
             CHANNEL -> {
                 val info = ChannelInfo.getInfo(url)
