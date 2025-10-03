@@ -46,12 +46,6 @@ class NewPipeShareHandlerActivity : Activity() {
     }
 }
 
-/** Host app trims trailing `-` or `_` what may break the link */
-fun urlWithSafeEnding(url: Uri?): String {
-    val length = url?.query?.length
-    return if (length != null && length > 0) "$url&" else "$url?"
-}
-
 class ShareHandlerToggleActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

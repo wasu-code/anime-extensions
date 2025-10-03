@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.animeextension.all.newpipe
 
 import android.app.Application
 import android.content.Intent
+import android.net.Uri
 import android.util.Log
 import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
@@ -133,11 +134,14 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource(), Configu
         if (query.startsWith("http")) {
             val serviceFromQuery = NewPipe.getServiceByUrl(query)
             if (serviceFromQuery == service) {
+                val url = query.trimEnd('?', '&') // ensure same url as from listings
+                val info = getSingleEntryInfo(service, url)
                 return AnimesPage(
                     listOf(
                         SAnime.create().apply {
-                            title = ""
-                            setUrlWithoutDomain(query.trimEnd('?', '&')) // ensure same url as from listings
+                            title = info.name
+                            thumbnail_url = info.thumbnails.last().url
+                            setUrlWithoutDomain(url)
                         },
                     ),
                     false,
@@ -295,12 +299,13 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource(), Configu
     }
 
     fun handlePlaylistInVideoList(episode: SEpisode): Boolean {
-        val isPlaylist = service.getLinkTypeByUrl(baseUrl + episode.url) == PLAYLIST
+        val url = baseUrl + episode.url
+        val isPlaylist = service.getLinkTypeByUrl(url) == PLAYLIST
         if (isPlaylist) {
             val searchIntent = Intent().apply {
                 action = "eu.kanade.tachiyomi.ANIMESEARCH"
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
-                putExtra("query", episode.name)
+                putExtra("query", urlWithSafeEnding(Uri.parse(url)))
                 putExtra("filter", NewPipeService::class.java.`package`?.name)
             }
             context.startActivity(searchIntent)

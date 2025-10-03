@@ -1,18 +1,24 @@
 package eu.kanade.tachiyomi.animeextension.all.newpipe
 
+import android.net.Uri
 import eu.kanade.tachiyomi.animesource.model.AnimeFilter
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.jsoup.Jsoup
+import org.schabi.newpipe.extractor.Image
 import org.schabi.newpipe.extractor.InfoItem
 import org.schabi.newpipe.extractor.NewPipe
+import org.schabi.newpipe.extractor.StreamingService
+import org.schabi.newpipe.extractor.channel.ChannelInfo
 import org.schabi.newpipe.extractor.downloader.Downloader
 import org.schabi.newpipe.extractor.downloader.Response
+import org.schabi.newpipe.extractor.playlist.PlaylistInfo
 import org.schabi.newpipe.extractor.stream.Description
 import org.schabi.newpipe.extractor.stream.Description.HTML
 import org.schabi.newpipe.extractor.stream.Description.MARKDOWN
 import org.schabi.newpipe.extractor.stream.Description.PLAIN_TEXT
+import org.schabi.newpipe.extractor.stream.StreamInfo
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -33,6 +39,24 @@ fun parseDate(dateString: String) = try {
     sdf.parse(dateString.take(19))?.time ?: 0L
 } catch (e: Exception) {
     0L
+}
+
+/** Host app trims trailing `-` or `_` what may break the link */
+fun urlWithSafeEnding(url: Uri?): String {
+    val length = url?.query?.length
+    return if (length != null && length > 0) "$url&" else "$url?"
+}
+
+data class BasicInfo(
+    val name: String,
+    val url: String,
+    val thumbnails: List<Image>,
+)
+fun getSingleEntryInfo(service: StreamingService, url: String): BasicInfo = when (service.getLinkTypeByUrl(url)) {
+    StreamingService.LinkType.STREAM -> { StreamInfo.getInfo(url).let { BasicInfo(it.name, url, it.thumbnails) } }
+    StreamingService.LinkType.PLAYLIST -> { PlaylistInfo.getInfo(url).let { BasicInfo(it.name, url, it.thumbnails) } }
+    StreamingService.LinkType.CHANNEL -> { ChannelInfo.getInfo(url).let { BasicInfo(it.name, url, it.avatars) } }
+    else -> throw IllegalArgumentException("Unsupported URL type")
 }
 
 fun InfoItem.InfoType.getIcon() = when (this) {
