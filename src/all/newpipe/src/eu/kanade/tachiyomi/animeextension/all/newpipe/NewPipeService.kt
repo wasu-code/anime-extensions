@@ -273,24 +273,48 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource(), Configu
                     service,
                     preferredTab,
                 )
+                val items = tabInfo.relatedItems.toMutableList()
 
-                tabInfo.relatedItems.mapIndexed { index, item ->
+                var nextPage: Page? = tabInfo.nextPage
+                while (nextPage != null) {
+                    val i = ChannelTabInfo.getMoreItems(service, preferredTab, nextPage)
+                    items.addAll(i.items)
+                    nextPage = i.nextPage
+                }
+
+                items.mapIndexed { index, item ->
                     SEpisode.create().apply {
                         name = "${item.infoType.getIcon()} | ${item.name}"
+                        episode_number = (items.size - index).toFloat()
                         setUrlWithoutDomain(item.url)
                     }
                 }
-//                ChannelTabInfo.getMoreItems(service,
-//                    listLinkHandler, nextPage));
-                // TODO pagination
             }
             else -> throw UnsupportedOperationException("Unsupported episode type")
         }
     }
 
-    override suspend fun getVideoList(episode: SEpisode): List<Video> {
-        val url = baseUrl + episode.url
+    fun handlePlaylistInVideoList(episode: SEpisode): Boolean {
+        val isPlaylist = service.getLinkTypeByUrl(baseUrl + episode.url) == PLAYLIST
+        if (isPlaylist) {
+            val searchIntent = Intent().apply {
+                action = "eu.kanade.tachiyomi.ANIMESEARCH"
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
+                putExtra("query", episode.name)
+                putExtra("filter", NewPipeService::class.java.`package`?.name)
+            }
+            context.startActivity(searchIntent)
+            return true
+        } else {
+            return false
+        }
+    }
 
+    override suspend fun getVideoList(episode: SEpisode): List<Video> {
+        // If playlist in video list, trigger search with intent instead of parsing
+        if (handlePlaylistInVideoList(episode)) return emptyList()
+
+        val url = baseUrl + episode.url
         val info = StreamInfo.getInfo(url)
 
         // info.streamSegments
@@ -299,6 +323,7 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource(), Configu
         Log.d("AAA", info.videoStreams.size.toString())
         Log.d("AAA", info.videoOnlyStreams.size.toString())
 
+        // TODO subtitles
 //        val subtitleTracks = info.subtitles.map {Track(it.content, it.locale.language + it.format,) }
 
 //        val audioTracks = info.audioStreams.sortedByDescending { it.audioTrackType == AudioTrackType.ORIGINAL }
