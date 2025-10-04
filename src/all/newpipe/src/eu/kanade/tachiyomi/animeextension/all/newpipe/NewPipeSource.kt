@@ -57,16 +57,18 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
         NewPipeInit.init(network.client)
     }
 
+    /** Holds pagination results */
+    data class PageResult(
+        val items: List<InfoItem>,
+        val nextPage: Page?,
+        val hasNextPage: Boolean,
+        val originalUrl: String?,
+    )
+    // variables storing pagination state for kiosks and search requests.
     var nextPage: Page? = null
     var originalUrl: String? = null
-    fun getKiosk(kiosk: String, page: Int): AnimesPage {
-        data class PageResult(
-            val items: List<InfoItem>,
-            val nextPage: Page?,
-            val hasNextPage: Boolean,
-            val originalUrl: String?,
-        )
 
+    fun getKiosk(kiosk: String, page: Int): AnimesPage {
         val result = if (page > 1) {
             val info = KioskInfo.getMoreItems(service, originalUrl, nextPage)
             PageResult(
@@ -136,30 +138,40 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
         // Perform search
         val contentFilterState: Int = filters.findInstance<ContentFilter>()?.state ?: 0
         val sortFilterState: Int = filters.findInstance<SortFilter>()?.state ?: 0
+
         val contentFilter =
             service.searchQHFactory.availableContentFilter.takeIf { it.isNotEmpty() }
                 ?.get(contentFilterState).let { listOf(it) }
         val sortFilter = service.searchQHFactory.availableSortFilter.takeIf { it.isNotEmpty() }?.get(sortFilterState)
 
-        val searchInfo = SearchInfo.getInfo(
-            service,
-            service.searchQHFactory.fromQuery(query, contentFilter, sortFilter),
-        )
+        val searchQueryHandler = service.searchQHFactory.fromQuery(query, contentFilter, sortFilter)
 
-//        if (page > 1) {
-//            service.searchQHFactory.fromUrl(nextPageUrl)
-//            val handler = service.searchQHFactory.fromUrl(nextPageUrl)
-//            SearchInfo.getInfo(service, handler)
-//        }
-//        else {
-//
-//        }
+        val result = if (page > 1) {
+            val info = SearchInfo.getMoreItems(service, searchQueryHandler, nextPage)
+            PageResult(
+                info.items,
+                info.nextPage,
+                info.hasNextPage(),
+                originalUrl = originalUrl,
+            )
+        } else {
+            val info = SearchInfo.getInfo(service, searchQueryHandler)
+            PageResult(
+                info.relatedItems,
+                info.nextPage,
+                info.hasNextPage(),
+                originalUrl = info.originalUrl,
+            )
+        }
 
-        // TODO pagination        if (page > 1) searchInfo = FeedInfo.getInfo(searchInfo.nextPage.url)         service.searchQHFactory.fromUrl()
+        if (result.hasNextPage) {
+            nextPage = result.nextPage
+            originalUrl = result.originalUrl
+        }
 
-        val animes = searchInfo.relatedItems.map { it.toSAnime() }
+        val listing = result.items.map { it.toSAnime() }
 
-        return AnimesPage(animes, false) // TODO searchInfo.hasNextPage()
+        return AnimesPage(listing, result.hasNextPage)
     }
 
     override suspend fun getAnimeDetails(anime: SAnime): SAnime {
