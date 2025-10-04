@@ -92,13 +92,7 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
             originalUrl = result.originalUrl
         }
 
-        val listing = result.items.map { item ->
-            SAnime.create().apply {
-                title = item.name
-                thumbnail_url = item.thumbnails.last().url
-                setUrlWithoutDomain(item.url)
-            }
-        }
+        val listing = result.items.map { it.toSAnime() }
 
         return AnimesPage(listing, result.hasNextPage)
     }
@@ -163,17 +157,7 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
 
         // TODO pagination        if (page > 1) searchInfo = FeedInfo.getInfo(searchInfo.nextPage.url)         service.searchQHFactory.fromUrl()
 
-        val animes = searchInfo.relatedItems.map { item: InfoItem ->
-            SAnime.create().apply {
-                title = when (item.infoType) {
-                    InfoItem.InfoType.CHANNEL -> "👤 | ${item.name}"
-                    InfoItem.InfoType.PLAYLIST -> "≔ | ${item.name}"
-                    else -> item.name
-                }
-                thumbnail_url = item.thumbnails.last().url
-                setUrlWithoutDomain(item.url)
-            }
-        }
+        val animes = searchInfo.relatedItems.map { it.toSAnime() }
 
         return AnimesPage(animes, false) // TODO searchInfo.hasNextPage()
     }
@@ -184,33 +168,15 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
         return when (service.getLinkTypeByUrl(url)) {
             STREAM -> {
                 val info = StreamInfo.getInfo(url)
-                SAnime.create().apply {
-                    title = info.name
-                    description = info.description.plainText()
-                    author = info.uploaderName
-                    thumbnail_url = info.thumbnails.last().url
-                    setUrlWithoutDomain(url)
-                }
+                info.toSAnime()
             }
             PLAYLIST -> {
                 val info = PlaylistInfo.getInfo(url)
-                SAnime.create().apply {
-                    title = info.name
-                    description = info.description.plainText()
-                    author = info.uploaderName
-                    thumbnail_url = info.thumbnails.last().url
-                    setUrlWithoutDomain(url)
-                }
+                info.toSAnime()
             }
             CHANNEL -> {
                 val info = ChannelInfo.getInfo(url)
-                SAnime.create().apply {
-                    title = "👤 | " + info.name
-                    description = info.description
-                    author = info.parentChannelName
-                    thumbnail_url = info.avatars.last().url
-                    setUrlWithoutDomain(url)
-                }
+                info.toSAnime()
             }
             else -> throw UnsupportedOperationException("Unsupported LinkType")
         }
@@ -413,8 +379,13 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
         }.also(screen::addPreference)
     }
 
-    //
+    // Helper functions
+    fun InfoItem.toSAnime(): SAnime = this.toSAnimeRaw().also { it.setUrlWithoutDomain(this.url) }
+    fun StreamInfo.toSAnime(): SAnime = this.toSAnimeRaw().also { it.setUrlWithoutDomain(this.url) }
+    fun PlaylistInfo.toSAnime(): SAnime = this.toSAnimeRaw().also { it.setUrlWithoutDomain(this.url) }
+    fun ChannelInfo.toSAnime(): SAnime = this.toSAnimeRaw().also { it.setUrlWithoutDomain(this.url) }
 
+    // Unused
     override fun latestUpdatesParse(response: Response): AnimesPage = throw UnsupportedOperationException("Not Used")
     override fun latestUpdatesRequest(page: Int): Request = throw UnsupportedOperationException("Not Used")
     override fun searchAnimeRequest(
