@@ -22,6 +22,7 @@ fun StreamInfo.toSAnimeRaw(): SAnime = SAnime.create().apply {
     description = this@toSAnimeRaw.description.plainText()
     author = uploaderName
     thumbnail_url = thumbnails.last().url
+    status = SAnime.COMPLETED
     url = this@toSAnimeRaw.url
 }
 

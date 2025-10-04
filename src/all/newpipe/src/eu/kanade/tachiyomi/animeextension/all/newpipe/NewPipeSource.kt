@@ -270,8 +270,8 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
     }
 
     override suspend fun getVideoList(episode: SEpisode): List<Video> {
-        // If playlist in video list, trigger search with intent instead of parsing
-        if (handlePlaylistInVideoList(episode)) return emptyList()
+        // If SEpisode is a playlist, trigger search with intent instead of parsing
+        if (handlePlaylistInVideoList(episode)) throw Exception("Searching for playlist")
 
         val url = baseUrl + episode.url
         val info = StreamInfo.getInfo(url)
