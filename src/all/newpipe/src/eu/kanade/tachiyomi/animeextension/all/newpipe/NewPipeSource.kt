@@ -205,7 +205,7 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
             CHANNEL -> {
                 val info = ChannelInfo.getInfo(url)
                 SAnime.create().apply {
-                    title = info.name
+                    title = "👤 | " + info.name
                     description = info.description
                     author = info.parentChannelName
                     thumbnail_url = info.avatars.last().url
@@ -246,6 +246,7 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
                     SEpisode.create().apply {
                         name = stream.name
                         episode_number = (index + 1).toFloat()
+                        scanlator = stream.uploaderName
                         date_upload = parseDate(stream.uploadDate?.offsetDateTime().toString())
                         setUrlWithoutDomain(stream.url)
                     }
