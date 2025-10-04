@@ -258,8 +258,7 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
         if (isPlaylist) {
             val searchIntent = Intent().apply {
                 action = "eu.kanade.tachiyomi.ANIMESEARCH"
-                // will open new activity every time, but necessary when android:launchMode is "singleTask" in host app for this action
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
                 putExtra("query", urlWithSafeEnding(Uri.parse(url)))
                 putExtra("filter", NewPipeSource::class.java.`package`?.name)
             }
