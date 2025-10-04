@@ -36,8 +36,7 @@ fun PlaylistInfo.toSAnimeRaw(): SAnime = SAnime.create().apply {
 fun ChannelInfo.toSAnimeRaw(): SAnime = SAnime.create().apply {
     title = "👤 | $name"
     description = description
-    author = parentChannelName
+    author = parentChannelName.ifBlank { name }
     thumbnail_url = avatars.last().url
     url = this@toSAnimeRaw.url
 }
-
