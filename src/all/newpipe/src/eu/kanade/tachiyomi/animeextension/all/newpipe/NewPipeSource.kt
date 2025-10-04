@@ -64,6 +64,7 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
         val hasNextPage: Boolean,
         val originalUrl: String?,
     )
+
     // variables storing pagination state for kiosks and search requests.
     var nextPage: Page? = null
     var originalUrl: String? = null
@@ -215,9 +216,9 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
 
                 var nextPage: Page? = playlist.nextPage
                 while (nextPage != null) {
-                    val i = PlaylistInfo.getMoreItems(service, url, nextPage)
-                    items.addAll(i.items)
-                    nextPage = i.nextPage
+                    val info = PlaylistInfo.getMoreItems(service, url, nextPage)
+                    items.addAll(info.items)
+                    nextPage = info.nextPage
                 }
 
                 items.mapIndexed { index, stream ->
@@ -231,8 +232,8 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
                 }.reversed()
             }
             CHANNEL -> {
-                val info = ChannelInfo.getInfo(url)
-                val tabs = info.tabs
+                val channelInfo = ChannelInfo.getInfo(url)
+                val tabs = channelInfo.tabs
                 // for channels show only playlists (eventually videos if no playlists available)
                 val preferredTab = tabs.find { it.url.contains(ChannelTabs.PLAYLISTS) }
                     ?: tabs.find { it.url.contains(ChannelTabs.VIDEOS) }
@@ -247,9 +248,9 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
 
                 var nextPage: Page? = tabInfo.nextPage
                 while (nextPage != null) {
-                    val i = ChannelTabInfo.getMoreItems(service, preferredTab, nextPage)
-                    items.addAll(i.items)
-                    nextPage = i.nextPage
+                    val info = ChannelTabInfo.getMoreItems(service, preferredTab, nextPage)
+                    items.addAll(info.items)
+                    nextPage = info.nextPage
                 }
 
                 items.mapIndexed { index, item ->
