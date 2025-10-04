@@ -8,5 +8,13 @@ import org.schabi.newpipe.extractor.StreamingService
 class NewPipeFactory : AnimeSourceFactory {
     val services: List<StreamingService> = ServiceList.all()
 
-    override fun createSources(): List<AnimeSource> = services.map { service -> NewPipeSource(service) }
+    /** Music streaming services */
+    val blacklist: List<StreamingService> = listOf(
+        ServiceList.Bandcamp,
+        ServiceList.SoundCloud,
+    )
+
+    override fun createSources(): List<AnimeSource> = services
+        .filterNot { it in blacklist }
+        .map { service -> NewPipeSource(service) }
 }

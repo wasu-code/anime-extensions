@@ -32,14 +32,11 @@ import org.schabi.newpipe.extractor.channel.tabs.ChannelTabs
 import org.schabi.newpipe.extractor.kiosk.KioskInfo
 import org.schabi.newpipe.extractor.playlist.PlaylistInfo
 import org.schabi.newpipe.extractor.search.SearchInfo
-import org.schabi.newpipe.extractor.services.soundcloud.SoundcloudParsingHelper
-import org.schabi.newpipe.extractor.services.soundcloud.SoundcloudService
 import org.schabi.newpipe.extractor.stream.AudioTrackType
 import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.schabi.newpipe.extractor.stream.VideoStream
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import java.lang.reflect.Field
 
 class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), ConfigurableAnimeSource {
 
@@ -57,14 +54,6 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
     private val context by lazy { Injekt.get<Application>() }
 
     init {
-        if (service is SoundcloudService) {
-            val clientID = preferences.getString("CLIENT_ID", null)
-            if (!clientID.isNullOrBlank()) {
-                val field: Field = SoundcloudParsingHelper::class.java.getDeclaredField("clientId")
-                field.isAccessible = true
-                field.set(null, clientID)
-            }
-        }
         NewPipeInit.init(network.client)
     }
 
@@ -265,9 +254,8 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
             CHANNEL -> {
                 val info = ChannelInfo.getInfo(url)
                 val tabs = info.tabs
-                // for channels show only playlists or albums (eventually videos)
+                // for channels show only playlists (eventually videos if no playlists available)
                 val preferredTab = tabs.find { it.url.contains(ChannelTabs.PLAYLISTS) }
-                    ?: tabs.find { it.url.contains(ChannelTabs.ALBUMS) }
                     ?: tabs.find { it.url.contains(ChannelTabs.VIDEOS) }
 
                 preferredTab ?: return emptyList()
@@ -394,14 +382,6 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
                 entryValues = ks.availableKiosks.toTypedArray()
                 setDefaultValue(ks.defaultKioskId)
                 summary = "%s"
-            }.also(screen::addPreference)
-        }
-
-        if (service is SoundcloudService) {
-            EditTextPreference(screen.context).apply {
-                key = "CLIENT_ID"
-                title = "Client ID"
-                summary = "Inspect SoundCloud website and look for client_id"
             }.also(screen::addPreference)
         }
 
