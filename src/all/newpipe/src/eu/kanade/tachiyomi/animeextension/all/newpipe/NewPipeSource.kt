@@ -41,7 +41,7 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.lang.reflect.Field
 
-class NewPipeService(val service: StreamingService) : AnimeHttpSource(), ConfigurableAnimeSource {
+class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), ConfigurableAnimeSource {
 
     override val name: String = service.serviceInfo.name
     override val baseUrl: String = service.baseUrl
@@ -70,7 +70,6 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource(), Configu
 
     var nextPage: Page? = null
     var originalUrl: String? = null
-
     fun getKiosk(kiosk: String, page: Int): AnimesPage {
         data class PageResult(
             val items: List<InfoItem>,
@@ -304,9 +303,10 @@ class NewPipeService(val service: StreamingService) : AnimeHttpSource(), Configu
         if (isPlaylist) {
             val searchIntent = Intent().apply {
                 action = "eu.kanade.tachiyomi.ANIMESEARCH"
+                // will open new activity every time, but necessary when android:launchMode is "singleTask" in host app for this action
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
                 putExtra("query", urlWithSafeEnding(Uri.parse(url)))
-                putExtra("filter", NewPipeService::class.java.`package`?.name)
+                putExtra("filter", NewPipeSource::class.java.`package`?.name)
             }
             context.startActivity(searchIntent)
             return true

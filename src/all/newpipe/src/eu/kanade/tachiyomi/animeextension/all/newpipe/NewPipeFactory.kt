@@ -8,5 +8,5 @@ import org.schabi.newpipe.extractor.StreamingService
 class NewPipeFactory : AnimeSourceFactory {
     val services: List<StreamingService> = ServiceList.all()
 
-    override fun createSources(): List<AnimeSource> = services.map { service -> NewPipeService(service) }
+    override fun createSources(): List<AnimeSource> = services.map { service -> NewPipeSource(service) }
 }
