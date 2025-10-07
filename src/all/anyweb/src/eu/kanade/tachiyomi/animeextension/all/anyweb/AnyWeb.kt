@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.animeextension.all.anyweb
 
 import android.app.Application
 import android.text.InputType
+import android.util.Log
 import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
@@ -109,7 +110,7 @@ class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
 
         // is webpage and contains no video elements -> assume it contains links to episode pages
         val document = response.asJsoup()
-        val isEpisodeIndex = !isDirectLink && document.selectFirst("video") != null
+        val isEpisodeIndex = !isDirectLink && document.selectFirst("video") == null
 
         return when {
             isDirectLink -> ParsingStrategy.DIRECT_LINK
@@ -131,6 +132,8 @@ class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
         val anime = SAnime.create().apply {
             this.url = url
         }
+
+        Log.d("AnyWeb", "Anime parsing strategy: $parsingStrategy")
 
         when (parsingStrategy) {
             ParsingStrategy.DIRECT_LINK -> {
@@ -228,6 +231,8 @@ class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
         if (parsingStrategy == ParsingStrategy.AUTO) {
             parsingStrategy = guessParsingStrategy(response)
         }
+
+        Log.d("AnyWeb", "Episode parsing strategy: $parsingStrategy")
 
         val episodes: List<SEpisode> = when (parsingStrategy) {
             ParsingStrategy.DIRECT_LINK -> {
