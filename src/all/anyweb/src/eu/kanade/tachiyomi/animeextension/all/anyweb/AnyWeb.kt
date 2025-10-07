@@ -17,11 +17,22 @@ import okhttp3.Response
 import kotlin.text.endsWith
 import kotlin.text.startsWith
 
+/**
+ * Defines the strategy used to locate and extract playable video sources
+ * from a given URL or page.
+ *
+ * One of: [AUTO], [DIRECT_LINK], [EPISODE_PAGE], [EPISODE_INDEX], [SEASON_INDEX]
+ */
 enum class ParsingStrategy() {
+    /** Tries to automatically determine the best parsing strategy based on the URL or content. */
     AUTO,
+    /** Treats the URL as a direct link to a video file or playlist. */
     DIRECT_LINK,
-    VIDEO_PAGE,
+    /** Parses a single episode page to extract the actual video URL(s). */
+    EPISODE_PAGE,
+    /** Parses a page containing multiple episode links, then processes each episode page. */
     EPISODE_INDEX,
+    /** Parses a page listing multiple episode indexes, then processes each episode index. */
     SEASON_INDEX,
 }
 
@@ -60,6 +71,7 @@ class AnyWeb : AnimeHttpSource() {
         0,
     )
 
+    /** Extracts the parsing strategy and URL from anime URL. */
     fun extractFromUrl(url: String): Pair<ParsingStrategy, String> {
         val matchResult = REGEX.find(url) ?: throw UnsupportedOperationException("")
         val (parsingStrategyString, url) = matchResult.destructured
@@ -67,15 +79,24 @@ class AnyWeb : AnimeHttpSource() {
         return Pair(parsingStrategyEnum, url)
     }
 
+    /**
+     * Tries to automatically determine the best [ParsingStrategy] based on the URL or content.
+     * Uses [ParsingStrategy.EPISODE_PAGE] as fallback.
+     */
     fun guessParsingStrategy(response: Response): ParsingStrategy {
+        // mimeType suggest video or playlist
         val isDirectLink = response.headers["Content-Type"]?.let {
             it.startsWith("video/") || it.endsWith("vnd.apple.mpegurl")
-        }
+        } ?: false
 
-        return if (isDirectLink == true) {
-            ParsingStrategy.DIRECT_LINK
-        } else {
-            ParsingStrategy.VIDEO_PAGE
+        // is webpage and contains no video elements -> assume it contains links to episode pages
+        val document = response.asJsoup()
+        val isEpisodeIndex = !isDirectLink && document.selectFirst("video") != null
+
+        return when {
+            isDirectLink -> ParsingStrategy.DIRECT_LINK
+            isEpisodeIndex -> ParsingStrategy.EPISODE_INDEX
+            else -> ParsingStrategy.EPISODE_PAGE
         }
     }
 
@@ -100,7 +121,7 @@ class AnyWeb : AnimeHttpSource() {
                     status = SAnime.COMPLETED
                 }
             }
-            ParsingStrategy.VIDEO_PAGE -> {
+            ParsingStrategy.EPISODE_PAGE -> {
                 val document = response.asJsoup()
                 anime.apply {
                     title = document.title()
@@ -137,7 +158,7 @@ class AnyWeb : AnimeHttpSource() {
                     },
                 )
             }
-            ParsingStrategy.VIDEO_PAGE -> {
+            ParsingStrategy.EPISODE_PAGE -> {
                 val document = response.asJsoup()
                 listOf(
                     SEpisode.create().apply {
