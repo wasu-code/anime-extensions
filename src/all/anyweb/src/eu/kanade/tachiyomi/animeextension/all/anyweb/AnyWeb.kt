@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.animeextension.all.anyweb
 
 import android.app.Application
+import android.text.InputType
 import android.util.Log
 import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceScreen
@@ -268,6 +269,12 @@ class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
                 masterHeaders = headers,
                 videoHeaders = headers,
             )
+            "mpd" -> PlaylistUtils(network.client, headers).extractFromDash(
+                mpdUrl = url,
+                mpdHeaders = headers,
+                videoHeaders = headers,
+                videoNameGen = { quality: String -> quality },
+            )
             else -> listOf(
                 Video(
                     url,
@@ -293,7 +300,7 @@ class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
             """.trimIndent()
             setDefaultValue("3")
             setOnBindEditTextListener { editText ->
-                editText.inputType = android.text.InputType.TYPE_CLASS_NUMBER
+                editText.inputType = InputType.TYPE_CLASS_NUMBER
             }
         }.also(screen::addPreference)
 
