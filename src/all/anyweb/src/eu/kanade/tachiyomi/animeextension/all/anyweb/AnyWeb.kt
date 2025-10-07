@@ -1,0 +1,191 @@
+package eu.kanade.tachiyomi.animeextension.all.anyweb
+
+import android.util.Log
+import eu.kanade.tachiyomi.animesource.model.AnimeFilter
+import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
+import eu.kanade.tachiyomi.animesource.model.AnimesPage
+import eu.kanade.tachiyomi.animesource.model.SAnime
+import eu.kanade.tachiyomi.animesource.model.SEpisode
+import eu.kanade.tachiyomi.animesource.model.Video
+import eu.kanade.tachiyomi.animesource.online.AnimeHttpSource
+import eu.kanade.tachiyomi.lib.playlistutils.PlaylistUtils
+import eu.kanade.tachiyomi.network.GET
+import eu.kanade.tachiyomi.network.awaitSuccess
+import eu.kanade.tachiyomi.util.asJsoup
+import okhttp3.Request
+import okhttp3.Response
+import kotlin.text.endsWith
+import kotlin.text.startsWith
+
+enum class ParsingStrategy() {
+    AUTO,
+    DIRECT_LINK,
+    VIDEO_PAGE,
+    EPISODE_INDEX,
+    SEASON_INDEX,
+}
+
+val REGEX = "http://(.*?)\\.aniyomi\\.invalid/(.*)".toRegex()
+
+class AnyWeb : AnimeHttpSource() {
+    override val name = "AnyWeb"
+    override val baseUrl = ""
+    override val lang = "all"
+    override val supportsLatest = false
+
+    override suspend fun getSearchAnime(
+        page: Int,
+        query: String,
+        filters: AnimeFilterList,
+    ): AnimesPage {
+        if (!query.startsWith("http")) throw UnsupportedOperationException("URL expected")
+
+        val parsingStrategyIndex = filters.find { it is ParsingStrategyFilter }?.state
+        val parsingStrategy = ParsingStrategy.values()[parsingStrategyIndex as Int]
+
+        val entry = SAnime.create().apply {
+            url = "http://$parsingStrategy.aniyomi.invalid/$query"
+        }
+
+        return AnimesPage(listOf(entry), false)
+    }
+
+    override fun getFilterList(): AnimeFilterList = AnimeFilterList(
+        ParsingStrategyFilter(),
+    )
+
+    class ParsingStrategyFilter : AnimeFilter.Select<String>(
+        "Parsing strategy",
+        ParsingStrategy.values().map { it.toString() }.toTypedArray(),
+        0,
+    )
+
+    fun extractFromUrl(url: String): Pair<ParsingStrategy, String> {
+        val matchResult = REGEX.find(url) ?: throw UnsupportedOperationException("")
+        val (parsingStrategyString, url) = matchResult.destructured
+        val parsingStrategyEnum = ParsingStrategy.valueOf(parsingStrategyString)
+        return Pair(parsingStrategyEnum, url)
+    }
+
+    fun guessParsingStrategy(response: Response): ParsingStrategy {
+        val isDirectLink = response.headers["Content-Type"]?.let {
+            it.startsWith("video/") || it.endsWith("vnd.apple.mpegurl")
+        }
+
+        return if (isDirectLink == true) {
+            ParsingStrategy.DIRECT_LINK
+        } else {
+            ParsingStrategy.VIDEO_PAGE
+        }
+    }
+
+    override suspend fun getAnimeDetails(anime: SAnime): SAnime {
+        var (parsingStrategy, url) = extractFromUrl(anime.url)
+
+        val response = network.client.newCall(GET(url))
+            .awaitSuccess()
+
+        if (parsingStrategy == ParsingStrategy.AUTO) {
+            parsingStrategy = guessParsingStrategy(response)
+        }
+
+        val anime = SAnime.create().apply {
+            this.url = url
+        }
+
+        when (parsingStrategy) {
+            ParsingStrategy.DIRECT_LINK -> {
+                anime.apply {
+                    title = "Direct"
+                    status = SAnime.COMPLETED
+                }
+            }
+            ParsingStrategy.VIDEO_PAGE -> {
+                val document = response.asJsoup()
+                anime.apply {
+                    title = document.title()
+                    description = document.selectFirst("meta[name=description]")?.attr("content")
+                    status = SAnime.COMPLETED
+                    thumbnail_url = document.selectFirst("video")?.attr("poster")
+                        ?: document.selectFirst("meta[property=og:image]")?.attr("content")
+                }
+            }
+//            ParsingStrategy.EPISODE_INDEX -> {}
+//            ParsingStrategy.SEASON_INDEX -> {}
+            else -> IllegalArgumentException("Unsupported parsing strategy")
+        }
+
+        return anime
+    }
+
+    override suspend fun getEpisodeList(anime: SAnime): List<SEpisode> {
+        var (parsingStrategy, url) = extractFromUrl(anime.url)
+
+        val response = network.client.newCall(GET(url))
+            .awaitSuccess()
+
+        if (parsingStrategy == ParsingStrategy.AUTO) {
+            parsingStrategy = guessParsingStrategy(response)
+        }
+
+        val episodes: List<SEpisode> = when (parsingStrategy) {
+            ParsingStrategy.DIRECT_LINK -> {
+                listOf(
+                    SEpisode.create().apply {
+                        name = "Direct"
+                        this.url = anime.url
+                    },
+                )
+            }
+            ParsingStrategy.VIDEO_PAGE -> {
+                val document = response.asJsoup()
+                listOf(
+                    SEpisode.create().apply {
+                        name = "Webpage"
+                        this.url = document.selectFirst("video source")?.attr("src") ?: ""
+                    },
+                )
+            }
+//            ParsingStrategy.EPISODE_INDEX -> {}
+//            ParsingStrategy.SEASON_INDEX -> {}
+            else -> emptyList()
+        }
+
+        return episodes
+    }
+
+    override suspend fun getVideoList(episode: SEpisode): List<Video> {
+        val url = episode.url
+
+        Log.d("AAA", episode.url)
+        val cleanUrl = url.substringBefore("?")
+        return when (cleanUrl.substringAfterLast(".")) {
+            "m3u8" -> PlaylistUtils(network.client, headers).extractFromHls(
+                playlistUrl = url,
+                masterHeaders = headers,
+                videoHeaders = headers,
+            )
+            else -> listOf(
+                Video(
+                    url,
+                    "default",
+                    url,
+                    headers = headers,
+                ),
+            )
+        }
+    }
+
+    override fun animeDetailsParse(response: Response): SAnime = throw UnsupportedOperationException("Not Used")
+    override fun episodeListParse(response: Response): List<SEpisode> = throw UnsupportedOperationException("Not Used")
+    override fun latestUpdatesParse(response: Response): AnimesPage = throw UnsupportedOperationException("Not Used")
+    override fun latestUpdatesRequest(page: Int): Request = throw UnsupportedOperationException("Not Used")
+    override fun popularAnimeParse(response: Response): AnimesPage = throw UnsupportedOperationException("Not Used")
+    override fun popularAnimeRequest(page: Int): Request = throw UnsupportedOperationException("Not Used")
+    override fun searchAnimeRequest(
+        page: Int,
+        query: String,
+        filters: AnimeFilterList,
+    ): Request = throw UnsupportedOperationException("Not Used")
+    override fun searchAnimeParse(response: Response): AnimesPage = throw UnsupportedOperationException("Not Used")
+}
