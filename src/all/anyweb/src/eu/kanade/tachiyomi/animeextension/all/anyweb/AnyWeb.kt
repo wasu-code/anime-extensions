@@ -1,6 +1,10 @@
 package eu.kanade.tachiyomi.animeextension.all.anyweb
 
+import android.app.Application
 import android.util.Log
+import androidx.preference.EditTextPreference
+import androidx.preference.PreferenceScreen
+import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
 import eu.kanade.tachiyomi.animesource.model.AnimeFilter
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
 import eu.kanade.tachiyomi.animesource.model.AnimesPage
@@ -14,6 +18,10 @@ import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.util.asJsoup
 import okhttp3.Request
 import okhttp3.Response
+import org.jsoup.nodes.Element
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
+import kotlin.getValue
 import kotlin.text.endsWith
 import kotlin.text.startsWith
 
@@ -26,23 +34,33 @@ import kotlin.text.startsWith
 enum class ParsingStrategy() {
     /** Tries to automatically determine the best parsing strategy based on the URL or content. */
     AUTO,
+
     /** Treats the URL as a direct link to a video file or playlist. */
     DIRECT_LINK,
+
     /** Parses a single episode page to extract the actual video URL(s). */
     EPISODE_PAGE,
+
     /** Parses a page containing multiple episode links, then processes each episode page. */
     EPISODE_INDEX,
+
     /** Parses a page listing multiple episode indexes, then processes each episode index. */
     SEASON_INDEX,
 }
 
+const val EXCLUDE_SELECTOR_DEFAULTS = "nav, footer, header, aside, .comments"
+
 val REGEX = "http://(.*?)\\.aniyomi\\.invalid/(.*)".toRegex()
 
-class AnyWeb : AnimeHttpSource() {
+class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
     override val name = "AnyWeb"
     override val baseUrl = ""
     override val lang = "all"
     override val supportsLatest = false
+
+    private val preferences by lazy {
+        Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
+    }
 
     override suspend fun getSearchAnime(
         page: Int,
@@ -139,6 +157,57 @@ class AnyWeb : AnimeHttpSource() {
         return anime
     }
 
+    private fun episodesFromIndex(url: String): List<SEpisode> {
+        val document = network.client.newCall(GET(url, headers)).execute().asJsoup()
+
+        // Ignore links in footer/header
+        val excludeSelector = preferences.getString("INDEX_EXCLUDE_SELECTOR", null) ?: EXCLUDE_SELECTOR_DEFAULTS
+        document.select(excludeSelector).forEach { it.remove() }
+
+        val maxDepth = preferences.getString("INDEX_DEPTH", null)?.toIntOrNull() ?: 3
+
+        val selectors = mutableListOf<String>()
+        val weights = mutableListOf<Int>()
+
+        for (d in 1..maxDepth) {
+            val path = List(d) { "> *" }.joinToString(" ")
+            val selector = ("$path > a")
+                .replace("> * > a", "> a") // fix for depth=1
+            selectors += selector
+            weights += maxOf(1, maxDepth - (d - 1)) // e.g. depth 1 = 3, depth 2 = 2, etc.
+        }
+
+        val candidates = document.select("*").filter { element ->
+            selectors.any { sel -> element.select(sel).isNotEmpty() }
+        }
+
+        var bestScore = 0
+        var bestContainer: Element? = null
+
+        for (container in candidates) {
+            var score = 0
+            for ((i, sel) in selectors.withIndex()) {
+                val count = container.select(sel).size
+                score += count * weights[i]
+            }
+
+            if (score > bestScore) {
+                bestScore = score
+                bestContainer = container
+            }
+        }
+
+        val chapters = bestContainer?.select("a")?.mapIndexed { index, a ->
+            SEpisode.create().apply {
+                name = a.text().ifBlank { "Untitled" }
+                this.url = a.absUrl("href")
+                episode_number = index.toFloat()
+            }
+        } ?: emptyList()
+
+        return chapters.reversed()
+    }
+
     override suspend fun getEpisodeList(anime: SAnime): List<SEpisode> {
         var (parsingStrategy, url) = extractFromUrl(anime.url)
 
@@ -167,7 +236,7 @@ class AnyWeb : AnimeHttpSource() {
                     },
                 )
             }
-//            ParsingStrategy.EPISODE_INDEX -> {}
+            ParsingStrategy.EPISODE_INDEX -> episodesFromIndex(url)
 //            ParsingStrategy.SEASON_INDEX -> {}
             else -> emptyList()
         }
@@ -195,6 +264,32 @@ class AnyWeb : AnimeHttpSource() {
                 ),
             )
         }
+    }
+
+    override fun setupPreferenceScreen(screen: PreferenceScreen) {
+        EditTextPreference(screen.context).apply {
+            key = "INDEX_DEPTH"
+            title = "Index Depth"
+            dialogTitle = "Set Index Depth"
+            summary = """
+                Defines how deep the DOM is scanned to auto-detect chapter links (when searching index:<url>).
+                Setting this to 1 will detect only links that are placed one after another in the DOM (e.g. in a single list or container).
+                Higher values increase scan depth and may help when dealing with chapters divided into sections.
+                Setting this value too high might make the extension detect all links on a webpage.
+                Recommended: 1–3.
+            """.trimIndent()
+            setDefaultValue("3")
+            setOnBindEditTextListener { editText ->
+                editText.inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            }
+        }.also(screen::addPreference)
+
+        EditTextPreference(screen.context).apply {
+            key = "INDEX_EXCLUDE_SELECTOR"
+            title = "Index: CSS selector to exclude"
+            dialogTitle = "Enter CSS selector"
+            setDefaultValue(EXCLUDE_SELECTOR_DEFAULTS)
+        }.also(screen::addPreference)
     }
 
     override fun animeDetailsParse(response: Response): SAnime = throw UnsupportedOperationException("Not Used")
