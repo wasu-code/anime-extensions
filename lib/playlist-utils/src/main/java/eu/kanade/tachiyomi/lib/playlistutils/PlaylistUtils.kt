@@ -131,7 +131,8 @@ class PlaylistUtils(private val client: OkHttpClient, private val headers: Heade
         return masterPlaylist.substringAfter(PLAYLIST_SEPARATOR).split(PLAYLIST_SEPARATOR).mapNotNull {
             val codec = it.substringAfter("CODECS=\"", "").substringBefore("\"", "")
             if (codec.isNotEmpty()) {
-                if (codec.startsWith("mp4a")) return@mapNotNull null
+                val isAudioOnly = codec.split(",").all { it.startsWith("mp4a") }
+                if (isAudioOnly) return@mapNotNull null
             }
 
 
