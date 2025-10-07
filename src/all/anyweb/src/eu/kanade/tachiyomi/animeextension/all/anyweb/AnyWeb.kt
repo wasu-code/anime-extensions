@@ -19,6 +19,7 @@ import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.util.asJsoup
 import okhttp3.Request
 import okhttp3.Response
+import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -102,14 +103,13 @@ class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
      * Tries to automatically determine the best [ParsingStrategy] based on the URL or content.
      * Uses [ParsingStrategy.EPISODE_PAGE] as fallback.
      */
-    fun guessParsingStrategy(response: Response): ParsingStrategy {
+    fun guessParsingStrategy(response: Response, document: Document): ParsingStrategy {
         // mimeType suggest video or playlist
         val isDirectLink = response.headers["Content-Type"]?.let {
             it.startsWith("video/") || it.endsWith("vnd.apple.mpegurl")
         } ?: false
 
         // is webpage and contains no video elements -> assume it contains links to episode pages
-        val document = response.asJsoup()
         val isEpisodeIndex = !isDirectLink && document.selectFirst("video") == null
 
         return when {
@@ -125,8 +125,10 @@ class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
         val response = network.client.newCall(GET(url))
             .awaitSuccess()
 
+        val document = response.asJsoup()
+
         if (parsingStrategy == ParsingStrategy.AUTO) {
-            parsingStrategy = guessParsingStrategy(response)
+            parsingStrategy = guessParsingStrategy(response, document)
         }
 
         val anime = SAnime.create().apply {
@@ -142,24 +144,18 @@ class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
                     status = SAnime.COMPLETED
                 }
             }
-            ParsingStrategy.EPISODE_PAGE -> {
-                val document = response.asJsoup()
-                anime.apply {
-                    title = document.title()
-                    description = document.selectFirst("meta[name=description]")?.attr("content")
-                    status = SAnime.COMPLETED
-                    thumbnail_url = document.selectFirst("video")?.attr("poster")
-                        ?: document.selectFirst("meta[property=og:image]")?.attr("content")
-                }
+            ParsingStrategy.EPISODE_PAGE -> anime.apply {
+                title = document.title()
+                description = document.selectFirst("meta[name=description]")?.attr("content")
+                status = SAnime.COMPLETED
+                thumbnail_url = document.selectFirst("video")?.attr("poster")
+                    ?: document.selectFirst("meta[property=og:image]")?.attr("content")
             }
-            else -> {
-                val document = response.asJsoup()
-                anime.apply {
-                    title = document.title()
-                    description = document.selectFirst("meta[name=description]")?.attr("content")
-                    thumbnail_url = document.selectFirst("video")?.attr("poster")
-                        ?: document.selectFirst("meta[property=og:image]")?.attr("content")
-                }
+            else -> anime.apply {
+                title = document.title()
+                description = document.selectFirst("meta[name=description]")?.attr("content")
+                thumbnail_url = document.selectFirst("video")?.attr("poster")
+                    ?: document.selectFirst("meta[property=og:image]")?.attr("content")
             }
         }
 
@@ -228,8 +224,10 @@ class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
         val response = network.client.newCall(GET(url))
             .awaitSuccess()
 
+        val document = response.asJsoup()
+
         if (parsingStrategy == ParsingStrategy.AUTO) {
-            parsingStrategy = guessParsingStrategy(response)
+            parsingStrategy = guessParsingStrategy(response, document)
         }
 
         Log.d("AnyWeb", "Episode parsing strategy: $parsingStrategy")
@@ -238,20 +236,18 @@ class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
             ParsingStrategy.DIRECT_LINK -> {
                 listOf(
                     SEpisode.create().apply {
-                        name = "Direct"
+                        name = "Video file"
                         this.url = anime.url
                     },
                 )
             }
-            ParsingStrategy.EPISODE_PAGE -> {
-                val document = response.asJsoup()
-                listOf(
-                    SEpisode.create().apply {
-                        name = "Webpage"
-                        this.url = document.selectFirst("video source")?.attr("src") ?: ""
-                    },
-                )
-            }
+            ParsingStrategy.EPISODE_PAGE -> listOf(
+                SEpisode.create().apply {
+                    name = document.title()
+                    this.url = document.selectFirst("video source")?.attr("src") ?: ""
+                },
+            )
+
             ParsingStrategy.EPISODE_INDEX -> episodesFromIndex(url)
             ParsingStrategy.SEASON_INDEX -> {
                 val seasons = episodesFromIndex(url)
@@ -320,6 +316,8 @@ class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
             setDefaultValue(EXCLUDE_SELECTOR_DEFAULTS)
         }.also(screen::addPreference)
     }
+
+    
 
     override fun animeDetailsParse(response: Response): SAnime = throw UnsupportedOperationException("Not Used")
     override fun episodeListParse(response: Response): List<SEpisode> = throw UnsupportedOperationException("Not Used")
