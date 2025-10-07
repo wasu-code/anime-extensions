@@ -163,6 +163,11 @@ class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
         return anime
     }
 
+    override fun getAnimeUrl(anime: SAnime): String {
+        val (_, url) = extractFromUrl(anime.url)
+        return url
+    }
+
     private fun episodesFromIndex(url: String): List<SEpisode> {
         val document = network.client.newCall(GET(url, headers)).execute().asJsoup()
 
