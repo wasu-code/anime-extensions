@@ -149,9 +149,15 @@ class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
                         ?: document.selectFirst("meta[property=og:image]")?.attr("content")
                 }
             }
-//            ParsingStrategy.EPISODE_INDEX -> {}
-//            ParsingStrategy.SEASON_INDEX -> {}
-            else -> IllegalArgumentException("Unsupported parsing strategy")
+            else -> {
+                val document = response.asJsoup()
+                anime.apply {
+                    title = document.title()
+                    description = document.selectFirst("meta[name=description]")?.attr("content")
+                    thumbnail_url = document.selectFirst("video")?.attr("poster")
+                        ?: document.selectFirst("meta[property=og:image]")?.attr("content")
+                }
+            }
         }
 
         return anime
@@ -237,7 +243,15 @@ class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
                 )
             }
             ParsingStrategy.EPISODE_INDEX -> episodesFromIndex(url)
-//            ParsingStrategy.SEASON_INDEX -> {}
+            ParsingStrategy.SEASON_INDEX -> {
+                val seasons = episodesFromIndex(url)
+                seasons.flatMapIndexed { seasonIndex, season ->
+                    episodesFromIndex(season.url).map { episode ->
+                        episode.episode_number = seasonIndex + (episode.episode_number + 1) / 100f
+                        episode
+                    }
+                }
+            }
             else -> emptyList()
         }
 
@@ -247,7 +261,6 @@ class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
     override suspend fun getVideoList(episode: SEpisode): List<Video> {
         val url = episode.url
 
-        Log.d("AAA", episode.url)
         val cleanUrl = url.substringBefore("?")
         return when (cleanUrl.substringAfterLast(".")) {
             "m3u8" -> PlaylistUtils(network.client, headers).extractFromHls(
