@@ -2,7 +2,6 @@ package eu.kanade.tachiyomi.animeextension.all.anyweb
 
 import android.app.Application
 import android.text.InputType
-import android.util.Log
 import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
