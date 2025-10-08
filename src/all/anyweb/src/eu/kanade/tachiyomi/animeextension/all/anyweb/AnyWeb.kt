@@ -2,7 +2,6 @@ package eu.kanade.tachiyomi.animeextension.all.anyweb
 
 import android.app.Application
 import android.text.InputType
-import android.util.Log
 import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
@@ -54,6 +53,7 @@ const val EXCLUDE_SELECTOR_DEFAULTS = "nav, footer, header, aside, .comments"
 
 val REGEX = "http://(.*?)\\.aniyomi\\.invalid/(.*)".toRegex()
 
+@Suppress("unused")
 class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
     override val name = "AnyWeb"
     override val baseUrl = ""
@@ -100,7 +100,7 @@ class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
     }
 
     /**
-     * Tries to automatically determine the best [ParsingStrategy] based on the URL or content.
+     * Tries to automatically determine the best [ParsingStrategy] based on the headers or content.
      * Uses [ParsingStrategy.EPISODE_PAGE] as fallback.
      */
     fun guessParsingStrategy(response: Response, document: Document): ParsingStrategy {
@@ -135,8 +135,6 @@ class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
             this.url = url
         }
 
-        Log.d("AnyWeb", "Anime parsing strategy: $parsingStrategy")
-
         when (parsingStrategy) {
             ParsingStrategy.DIRECT_LINK -> {
                 anime.apply {
@@ -145,17 +143,15 @@ class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
                 }
             }
             ParsingStrategy.EPISODE_PAGE -> anime.apply {
-                title = document.title()
-                description = document.selectFirst("meta[name=description]")?.attr("content")
+                title = findTitle(document)
+                description = findDescription(document)
+                thumbnail_url = findCover(document)
                 status = SAnime.COMPLETED
-                thumbnail_url = document.selectFirst("video")?.attr("poster")
-                    ?: document.selectFirst("meta[property=og:image]")?.attr("content")
             }
             else -> anime.apply {
-                title = document.title()
-                description = document.selectFirst("meta[name=description]")?.attr("content")
-                thumbnail_url = document.selectFirst("video")?.attr("poster")
-                    ?: document.selectFirst("meta[property=og:image]")?.attr("content")
+                title = findTitle(document)
+                description = findDescription(document)
+                thumbnail_url = findCover(document)
             }
         }
 
@@ -230,8 +226,6 @@ class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
             parsingStrategy = guessParsingStrategy(response, document)
         }
 
-        Log.d("AnyWeb", "Episode parsing strategy: $parsingStrategy")
-
         val episodes: List<SEpisode> = when (parsingStrategy) {
             ParsingStrategy.DIRECT_LINK -> {
                 listOf(
@@ -241,13 +235,15 @@ class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
                     },
                 )
             }
-            ParsingStrategy.EPISODE_PAGE -> listOf(
-                SEpisode.create().apply {
-                    name = document.title()
-                    this.url = document.selectFirst("video source")?.attr("src") ?: ""
-                },
-            )
-
+            ParsingStrategy.EPISODE_PAGE -> {
+                val title = findTitle(document)
+                findVideos(document).map { videoUrl ->
+                    SEpisode.create().apply {
+                        name = title
+                        this.url = videoUrl
+                    }
+                }
+            }
             ParsingStrategy.EPISODE_INDEX -> episodesFromIndex(url)
             ParsingStrategy.SEASON_INDEX -> {
                 val seasons = episodesFromIndex(url)
@@ -317,7 +313,25 @@ class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
         }.also(screen::addPreference)
     }
 
-    
+    //
+    fun findTitle(document: Document): String =
+        document.selectFirst("[itemprop=video] meta[itemprop=name]")?.attr("content")
+            ?: document.selectFirst("meta[property=og:title]")?.attr("content")
+            ?: document.selectFirst("meta[name=title]")?.attr("content")
+            ?: document.title()
+    fun findAuthor(document: Document): String? = document.selectFirst("meta[name=author]")?.attr("content")
+    fun findDescription(document: Document): String? =
+        document.selectFirst("[itemprop=video] meta[itemprop=description]")?.attr("content")
+            ?: document.selectFirst("meta[property=og:description]")?.attr("content")
+            ?: document.selectFirst("meta[name=description]")?.attr("content")
+    fun findCover(document: Document) =
+        document.selectFirst("video")?.attr("poster")
+            ?: document.selectFirst("[itemprop=video] meta[itemprop=thumbnailUrl]")?.attr("content")
+            ?: document.selectFirst("meta[property=og:image]")?.attr("content")
+            ?: document.selectFirst("meta[name=image]")?.attr("content")
+            ?: document.selectFirst("img")?.attr("src")
+
+    fun findVideos(document: Document) = document.select("video source").map { it.attr("src") }
 
     override fun animeDetailsParse(response: Response): SAnime = throw UnsupportedOperationException("Not Used")
     override fun episodeListParse(response: Response): List<SEpisode> = throw UnsupportedOperationException("Not Used")
