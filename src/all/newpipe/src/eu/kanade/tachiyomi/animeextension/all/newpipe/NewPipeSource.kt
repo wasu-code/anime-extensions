@@ -20,6 +20,7 @@ import eu.kanade.tachiyomi.animesource.online.AnimeHttpSource
 import okhttp3.Request
 import okhttp3.Response
 import org.schabi.newpipe.extractor.InfoItem
+import org.schabi.newpipe.extractor.MediaFormat
 import org.schabi.newpipe.extractor.NewPipe
 import org.schabi.newpipe.extractor.Page
 import org.schabi.newpipe.extractor.StreamingService
@@ -37,6 +38,8 @@ import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.schabi.newpipe.extractor.stream.VideoStream
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import java.io.File
+import java.net.URL
 
 class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), ConfigurableAnimeSource {
 
@@ -295,8 +298,21 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
         Log.d("AAA", info.videoStreams.size.toString())
         Log.d("AAA", info.videoOnlyStreams.size.toString())
 
-        // TODO subtitles
-//        val subtitleTracks = info.subtitles.map {Track(it.content, it.locale.language + it.format,) }
+        // Subtitles are provided in ttml format (for yt). Host app doesn't support ttml
+        // val subtitleTracks = info.subtitles.map {Track(it.content, it.locale.language + it.format) }
+
+        val subtitleTracks = info.subtitles.map {
+            if (it.format == MediaFormat.TTML) {
+                val ttml = URL(it.content).readText()
+                val srt = SubtitleConverter().convertTtmlToSrt(ttml)
+                val tempFile = File(context.cacheDir, "${it.locale.language}.srt")
+                tempFile.writeText(srt)
+                val fileUri = "file://${tempFile.absolutePath}"
+                Track(fileUri, "${it.locale.language} (${it.format}->srt)")
+            } else {
+                Track(it.content, "${it.locale.language} (${it.format})")
+            }
+        }
 
 //        val audioTracks = info.audioStreams.sortedByDescending { it.audioTrackType == AudioTrackType.ORIGINAL }
 //            .map { Track(it.content, "${it.audioTrackName} ${it.audioTrackType} ${it.format} ${it.bitrate}") }
@@ -324,7 +340,7 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
                 stream.content,
                 "${stream.quality} (${stream.resolution}) ${stream.format}",
                 stream.content,
-//                subtitleTracks = subtitleTracks.filterNotNull(),
+                subtitleTracks = subtitleTracks,
                 audioTracks = audioTracks,
             )
         }
@@ -389,6 +405,13 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
                 true
             }
         }.also(screen::addPreference)
+
+//        SwitchPreferenceCompat(screen.context).apply {
+//            title = "Clear subtitle cache"
+//            summary = {
+//
+//            }
+//        }.also(screen::addPreference)
     }
 
     // Helper functions
