@@ -41,6 +41,8 @@ import uy.kohesive.injekt.api.get
 import java.io.File
 import java.net.URL
 
+const val SUBTITLES_CACHE_DIR = "npsubs"
+
 class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), ConfigurableAnimeSource {
 
     override val name: String = service.serviceInfo.name
@@ -301,11 +303,16 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
         // Subtitles are provided in ttml format (for yt). Host app doesn't support ttml
         // val subtitleTracks = info.subtitles.map {Track(it.content, it.locale.language + it.format) }
 
-        val subtitleTracks = info.subtitles.map {
+        val allowSubsConversion = preferences.getBoolean("CONVERT_SUBTITLES", true)
+        val subsDir = File(context.cacheDir, SUBTITLES_CACHE_DIR)
+        if (!subsDir.exists()) { subsDir.mkdirs() }
+
+        val subtitleTracks = info.subtitles.mapNotNull {
             if (it.format == MediaFormat.TTML) {
+                if (!allowSubsConversion) return@mapNotNull null
                 val ttml = URL(it.content).readText()
                 val srt = SubtitleConverter().convertTtmlToSrt(ttml)
-                val tempFile = File(context.cacheDir, "${it.locale.language}.srt")
+                val tempFile = File(subsDir, "${it.locale.language}.srt")
                 tempFile.writeText(srt)
                 val fileUri = "file://${tempFile.absolutePath}"
                 Track(fileUri, "${it.locale.language} (${it.format}->srt)")
@@ -381,6 +388,33 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
         }
 
         EditTextPreference(screen.context).apply {
+            summary = "Subtitles"
+            setEnabled(false)
+        }.also(screen::addPreference)
+
+        SwitchPreferenceCompat(screen.context).apply {
+            key = "CLEAR_CACHE"
+            title = "Clear subtitles cache"
+            val subsDir = File(context.cacheDir, SUBTITLES_CACHE_DIR)
+            summary = (subsDir.listFiles()?.size ?: 0).toString() + " cached files"
+            setDefaultValue(false)
+            setOnPreferenceChangeListener { pref, _ ->
+                subsDir.deleteRecursively()
+                summary = (subsDir.listFiles()?.size ?: 0).toString() + " cached files"
+                val switchPref = pref as SwitchPreferenceCompat
+                switchPref.isChecked = false
+                false // don't save state, it's a button
+            }
+        }.also(screen::addPreference)
+
+        SwitchPreferenceCompat(screen.context).apply {
+            key = "CONVERT_SUBTITLES"
+            title = "Allow subtitles format conversion"
+            summary = "May slow down video loading. If disabled unsupported subtitles format will be omitted."
+            setDefaultValue(true)
+        }.also(screen::addPreference)
+
+        EditTextPreference(screen.context).apply {
             summary = "Common settings"
             setEnabled(false)
         }.also(screen::addPreference)
@@ -405,13 +439,6 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
                 true
             }
         }.also(screen::addPreference)
-
-//        SwitchPreferenceCompat(screen.context).apply {
-//            title = "Clear subtitle cache"
-//            summary = {
-//
-//            }
-//        }.also(screen::addPreference)
     }
 
     // Helper functions
