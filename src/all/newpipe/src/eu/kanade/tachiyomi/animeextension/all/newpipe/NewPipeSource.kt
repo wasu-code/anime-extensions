@@ -6,6 +6,7 @@ import android.net.Uri
 import android.util.Log
 import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
+import androidx.preference.MultiSelectListPreference
 import androidx.preference.PreferenceScreen
 import androidx.preference.SwitchPreferenceCompat
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
@@ -304,27 +305,43 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
         // val subtitleTracks = info.subtitles.map {Track(it.content, it.locale.language + it.format) }
 
         val allowSubsConversion = preferences.getBoolean("CONVERT_SUBTITLES", true)
+        val allowedLanguages = preferences.getStringSet("LANGUAGES", setOf())!!
+
         val subsDir = File(context.cacheDir, SUBTITLES_CACHE_DIR)
         if (!subsDir.exists()) { subsDir.mkdirs() }
 
-        val subtitleTracks = info.subtitles.mapNotNull {
-            if (it.format == MediaFormat.TTML) {
-                if (!allowSubsConversion) return@mapNotNull null
-                val ttml = URL(it.content).readText()
-                val srt = SubtitleConverter().convertTtmlToSrt(ttml)
-                val tempFile = File(subsDir, "${it.locale.language}.srt")
-                tempFile.writeText(srt)
-                val fileUri = "file://${tempFile.absolutePath}"
-                Track(fileUri, "${it.locale.language} (${it.format}->srt)")
-            } else {
-                Track(it.content, "${it.locale.language} (${it.format})")
+        val subtitleTracks = info.subtitles
+            .filter { stream ->
+                val language = stream.locale.language
+                language.isNullOrBlank() || // can't determine language
+                    allowedLanguages.contains(language) // selected by user
             }
-        }
+            .mapNotNull {
+                if (it.format == MediaFormat.TTML) {
+                    if (!allowSubsConversion) return@mapNotNull null
+                    //TODO use cached or clear cache on app extension load
+                    val ttml = URL(it.content).readText()
+                    val srt = SubtitleConverter().convertTtmlToSrt(ttml)
+                    val tempFile = File(subsDir, "${it.locale.language}.srt")
+                    tempFile.writeText(srt)
+                    val fileUri = "file://${tempFile.absolutePath}"
+                    Track(fileUri, "${it.locale.language} (${it.format}->srt)")
+                } else {
+                    Track(it.content, "${it.locale.language} (${it.format})")
+                }
+            }
 
 //        val audioTracks = info.audioStreams.sortedByDescending { it.audioTrackType == AudioTrackType.ORIGINAL }
 //            .map { Track(it.content, "${it.audioTrackName} ${it.audioTrackType} ${it.format} ${it.bitrate}") }
 
         val audioTracks = info.audioStreams
+            // Allow only original language, languages selected in settings and tracks with no language specified
+            .filter { stream ->
+                val language = stream.audioLocale?.language
+                language.isNullOrBlank() || // can't determine language
+                    allowedLanguages.contains(language) || // selected by user
+                    stream.audioTrackType == AudioTrackType.ORIGINAL // language of the original
+            }
             .groupBy { it.audioLocale?.language ?: "und" } // group by language code
             .map { (_, group) ->
                 // Pick the "best" from each group. Example: prefer ORIGINAL, then highest bitrate
@@ -388,7 +405,7 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
         }
 
         EditTextPreference(screen.context).apply {
-            summary = "Subtitles"
+            summary = "Subtitles & Audio tracks"
             setEnabled(false)
         }.also(screen::addPreference)
 
@@ -412,6 +429,22 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
             title = "Allow subtitles format conversion"
             summary = "May slow down video loading. If disabled unsupported subtitles format will be omitted."
             setDefaultValue(true)
+        }.also(screen::addPreference)
+
+        val commonLanguageCodes = listOf(
+            "en", "de", "fr", "es", "it", "pt", "ru", "ja", "ko", "zh-CN", "zh-TW", "pl", "nl", "sv",
+        )
+        MultiSelectListPreference(screen.context).apply {
+            key = "LANGUAGES"
+            title = "Audio & Subtitles languages"
+            summary = """
+                Only load subtitles and audio for these languages.
+                Will speed up loading.
+                Original language and undetermined languages will be included anyway.
+            """.trimIndent()
+            entries = commonLanguageCodes.toTypedArray()
+            entryValues = commonLanguageCodes.toTypedArray()
+            setDefaultValue(commonLanguageCodes.toSet())
         }.also(screen::addPreference)
 
         EditTextPreference(screen.context).apply {
