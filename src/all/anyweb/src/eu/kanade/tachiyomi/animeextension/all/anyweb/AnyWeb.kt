@@ -51,7 +51,7 @@ enum class ParsingStrategy() {
 
 const val EXCLUDE_SELECTOR_DEFAULTS = "nav, footer, header, aside, .comments"
 
-val REGEX = "http://(.*?)\\.aniyomi\\.invalid/(.*)".toRegex()
+val REGEX = "http://(.*)\\.(.*)\\.aniyomi\\.invalid/(.*)".toRegex()
 
 @Suppress("unused")
 class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
@@ -62,6 +62,17 @@ class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
 
     private val preferences by lazy {
         Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
+    }
+
+    private fun wrapUrl(url: String, parsingStrategy: ParsingStrategy, indexDepth: Int = 3) =
+        "http://$parsingStrategy.$indexDepth.aniyomi.invalid/$url"
+
+    /** Extracts the parsing strategy and URL from anime URL. */
+    fun unwrapUrl(url: String): Triple<ParsingStrategy?, String, Int> {
+        val matchResult = REGEX.find(url) ?: return Triple(null, url, 0)
+        val (parsingStrategyString, indexDepth, url) = matchResult.destructured
+        val parsingStrategyEnum = ParsingStrategy.valueOf(parsingStrategyString)
+        return Triple(parsingStrategyEnum, url, indexDepth.toInt())
     }
 
     override suspend fun getSearchAnime(
@@ -75,7 +86,7 @@ class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
         val parsingStrategy = ParsingStrategy.values()[parsingStrategyIndex as Int]
 
         val entry = SAnime.create().apply {
-            url = "http://$parsingStrategy.aniyomi.invalid/$query"
+            url = wrapUrl(query, parsingStrategy)
         }
 
         return AnimesPage(listOf(entry), false)
@@ -83,6 +94,7 @@ class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
 
     override fun getFilterList(): AnimeFilterList = AnimeFilterList(
         ParsingStrategyFilter(),
+        IndexDepthFilter(),
     )
 
     class ParsingStrategyFilter : AnimeFilter.Select<String>(
@@ -91,13 +103,7 @@ class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
         0,
     )
 
-    /** Extracts the parsing strategy and URL from anime URL. */
-    fun extractFromUrl(url: String): Pair<ParsingStrategy, String> {
-        val matchResult = REGEX.find(url) ?: throw UnsupportedOperationException("")
-        val (parsingStrategyString, url) = matchResult.destructured
-        val parsingStrategyEnum = ParsingStrategy.valueOf(parsingStrategyString)
-        return Pair(parsingStrategyEnum, url)
-    }
+    class IndexDepthFilter : AnimeFilter.Text("Index depth")
 
     /**
      * Tries to automatically determine the best [ParsingStrategy] based on the headers or content.
@@ -120,7 +126,7 @@ class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
     }
 
     override suspend fun getAnimeDetails(anime: SAnime): SAnime {
-        var (parsingStrategy, url) = extractFromUrl(anime.url)
+        var (parsingStrategy, url) = unwrapUrl(anime.url)
 
         val response = network.client.newCall(GET(url))
             .awaitSuccess()
@@ -159,18 +165,18 @@ class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
     }
 
     override fun getAnimeUrl(anime: SAnime): String {
-        val (_, url) = extractFromUrl(anime.url)
+        val (_, url) = unwrapUrl(anime.url)
         return url
     }
 
-    private fun episodesFromIndex(url: String): List<SEpisode> {
+    private fun episodesFromIndex(url: String, maxDepth: Int): List<SEpisode> {
         val document = network.client.newCall(GET(url, headers)).execute().asJsoup()
 
         // Ignore links in footer/header
         val excludeSelector = preferences.getString("INDEX_EXCLUDE_SELECTOR", null) ?: EXCLUDE_SELECTOR_DEFAULTS
         document.select(excludeSelector).forEach { it.remove() }
 
-        val maxDepth = preferences.getString("INDEX_DEPTH", null)?.toIntOrNull() ?: 3
+//        val maxDepth = preferences.getString("INDEX_DEPTH", null)?.toIntOrNull() ?: 3
 
         val selectors = mutableListOf<String>()
         val weights = mutableListOf<Int>()
@@ -215,7 +221,7 @@ class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
     }
 
     override suspend fun getEpisodeList(anime: SAnime): List<SEpisode> {
-        var (parsingStrategy, url) = extractFromUrl(anime.url)
+        var (parsingStrategy, url, indexDepth) = unwrapUrl(anime.url)
 
         val response = network.client.newCall(GET(url))
             .awaitSuccess()
@@ -244,12 +250,16 @@ class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
                     }
                 }
             }
-            ParsingStrategy.EPISODE_INDEX -> episodesFromIndex(url)
+            ParsingStrategy.EPISODE_INDEX -> episodesFromIndex(url, indexDepth).map {
+                it.url = wrapUrl(it.url, ParsingStrategy.EPISODE_PAGE)
+                it
+            }
             ParsingStrategy.SEASON_INDEX -> {
-                val seasons = episodesFromIndex(url)
+                val seasons = episodesFromIndex(url, indexDepth)
                 seasons.flatMapIndexed { seasonIndex, season ->
-                    episodesFromIndex(season.url).map { episode ->
+                    episodesFromIndex(season.url, indexDepth).map { episode ->
                         episode.episode_number = seasonIndex + (episode.episode_number + 1) / 100f
+                        episode.url = wrapUrl(episode.url, ParsingStrategy.EPISODE_PAGE)
                         episode
                     }
                 }
@@ -261,7 +271,13 @@ class AnyWeb : AnimeHttpSource(), ConfigurableAnimeSource {
     }
 
     override suspend fun getVideoList(episode: SEpisode): List<Video> {
-        val url = episode.url
+        var (parsingStrategy, url) = unwrapUrl(episode.url)
+
+        // if url still requires parsing, fetch page and find video url
+        if (parsingStrategy == ParsingStrategy.EPISODE_PAGE) {
+            val document = network.client.newCall(GET(url, headers)).awaitSuccess().asJsoup()
+            url = findVideos(document).first()
+        }
 
         val cleanUrl = url.substringBefore("?")
         return when (cleanUrl.substringAfterLast(".")) {
