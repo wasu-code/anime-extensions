@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.animeextension.all.cloudstream
 
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.MainPageRequest
+import com.lagradost.cloudstream3.Prerelease
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
 import eu.kanade.tachiyomi.animesource.model.AnimesPage
 import eu.kanade.tachiyomi.animesource.model.SAnime
@@ -49,6 +50,7 @@ class MainApiAdapter(
 
     // === Search ===
 
+    @OptIn(Prerelease::class)
     override suspend fun getSearchAnime(
         page: Int,
         query: String,

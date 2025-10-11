@@ -7,6 +7,7 @@ import eu.kanade.tachiyomi.animesource.AnimeSourceFactory
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
+@Suppress("unused")
 class CloudStreamFactory : AnimeSourceFactory {
     private val context = Injekt.get<Application>()
 

@@ -38,6 +38,7 @@ class CloudStreamSettings() : AnimeHttpSource(), ConfigurableAnimeSource {
     }
 
     @SuppressLint("ApplySharedPref")
+    @Suppress("UNCHECKED_CAST")
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
         val pluginsPref: MultiSelectListPreference = MultiSelectListPreference(screen.context).apply {
             key = "EXTENSIONS"

@@ -33,7 +33,7 @@ object PluginManager {
                 connection.disconnect()
                 file.setReadOnly() // Make it read-only (for Android 14+ to read dex files)
                 file
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 null
             }
         }
