@@ -1,16 +1,21 @@
 package com.lagradost.api
 
+import android.content.Context
 import java.lang.ref.WeakReference
 
+var ctx: WeakReference<Context>? = null
+
 /**
- * Set context for android specific code such as webview.
- * Does nothing on JVM.
- */
-expect fun setContext(context: WeakReference<Any>)
-/**
- * Helper function for Android specific context.
+ * Helper function for Android specific context. Not usable in JVM.
  * Do not use this unless absolutely necessary.
- * setContext() must be called before this is called.
- * @return Context if on android, null if not.
  */
-expect fun getContext(): Any?
+fun getContext(): Any? {
+    return ctx?.get()
+}
+
+fun setContext(context: WeakReference<Any>) {
+    val actualContext = context.get() as? Context
+    if (actualContext != null) {
+        ctx = WeakReference(actualContext)
+    }
+}
