@@ -13,12 +13,12 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 object PluginManager {
-    private val context = Injekt.get<Application>()
-    private val extensionsDir = File(context.filesDir, "cloudstream")
+    private val CONTEXT = Injekt.get<Application>()
+    private val EXTENSIONS_DIR = File(CONTEXT.filesDir, "cloudstream")
 
     suspend fun downloadPluginToFile(pluginUrl: String): File? =
         withContext(Dispatchers.IO) {
-            val file = File(extensionsDir, "${pluginUrl.hashCode()}.cs3")
+            val file = File(EXTENSIONS_DIR, "${pluginUrl.hashCode()}.cs3")
             try {
                 file.parentFile?.mkdirs()
                 if (file.exists()) file.delete()
@@ -39,16 +39,16 @@ object PluginManager {
         }
 
     suspend fun deletePluginFile(pluginUrl: String): Boolean = withContext(Dispatchers.IO) {
-        val file = File(extensionsDir, "${pluginUrl.hashCode()}.cs3")
+        val file = File(EXTENSIONS_DIR, "${pluginUrl.hashCode()}.cs3")
         file.delete()
     }
 
     suspend fun deleteAllPluginFiles(): Boolean = withContext(Dispatchers.IO) {
-        extensionsDir.deleteRecursively()
-        extensionsDir.mkdirs()
+        EXTENSIONS_DIR.deleteRecursively()
+        EXTENSIONS_DIR.mkdirs()
     }
 
-    fun getPluginCount(): Int = extensionsDir.listFiles()?.size ?: 0
+    fun getPluginCount(): Int = EXTENSIONS_DIR.listFiles()?.size ?: 0
 
     private fun write(stream: InputStream, output: OutputStream) {
         val input = BufferedInputStream(stream)

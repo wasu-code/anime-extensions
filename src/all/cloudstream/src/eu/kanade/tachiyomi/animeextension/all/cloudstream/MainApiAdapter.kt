@@ -52,7 +52,7 @@ class MainApiAdapter(
     override suspend fun getSearchAnime(
         page: Int,
         query: String,
-        filters: AnimeFilterList
+        filters: AnimeFilterList,
     ): AnimesPage {
         return runBlocking {
             try {
@@ -75,7 +75,7 @@ class MainApiAdapter(
 
     override suspend fun getAnimeDetails(anime: SAnime): SAnime {
         val details = runBlocking {
-            try{
+            try {
                 api.load(anime.url)
             } catch (_: NotImplementedError) {
                 throw UnsupportedOperationException("Not implemented")
@@ -90,7 +90,7 @@ class MainApiAdapter(
 
     override suspend fun getEpisodeList(anime: SAnime): List<SEpisode> {
         val loadResponse = runBlocking {
-            try{
+            try {
                 api.load(anime.url)
             } catch (_: NotImplementedError) {
                 throw UnsupportedOperationException("Not implemented")
@@ -107,7 +107,7 @@ class MainApiAdapter(
         val videos = mutableListOf<Video>()
         val subs = mutableListOf<Track>()
         runBlocking {
-            try{
+            try {
                 api.loadLinks(
                     episode.url,
                     isCasting = false,
@@ -116,7 +116,7 @@ class MainApiAdapter(
                     },
                     callback = { extractorLink ->
                         videos.add(extractorLink.toVideo())
-                    }
+                    },
                 )
             } catch (_: NotImplementedError) {
                 throw UnsupportedOperationException("Not implemented")

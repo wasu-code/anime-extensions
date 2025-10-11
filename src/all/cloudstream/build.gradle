@@ -1,3 +1,6 @@
+import org.jmailen.gradle.kotlinter.tasks.FormatTask
+import org.jmailen.gradle.kotlinter.tasks.LintTask
+
 ext {
     extName = 'CloudStream'
     extClass = '.CloudStreamFactory'
@@ -22,4 +25,13 @@ android {
     kotlinOptions {
         freeCompilerArgs += "-Xmulti-platform"
     }
+}
+
+// Exclude CloudStream files from lint
+tasks.withType(LintTask).configureEach {
+    exclude("com/lagradost/**")
+}
+
+tasks.withType(FormatTask).configureEach {
+    exclude("com/lagradost/**")
 }

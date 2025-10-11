@@ -21,7 +21,7 @@ import kotlin.jvm.java
 
 object PluginLoader {
     private const val PLUGIN_FOLDER = "cloudstream"
-    private val handler by lazy { Handler(Looper.getMainLooper()) }
+    private val HANDLER by lazy { Handler(Looper.getMainLooper()) }
 
     fun loadPlugin(context: Application, file: File): Boolean {
         try {
@@ -36,10 +36,10 @@ object PluginLoader {
                     val pluginInstance = pluginClass.getDeclaredConstructor().newInstance() as BasePlugin
 
                     if (pluginInstance is Plugin) {
-                        Log.d("CloudStream","Class Plugin not yet fully supported: ${manifest.name} ($file)")
+                        Log.d("CloudStream", "Class Plugin not yet fully supported: ${manifest.name} ($file)")
 
                         val hasOpenSettings = pluginInstance.openSettings != null
-                        hasOpenSettings && handler.post {
+                        hasOpenSettings && HANDLER.post {
                             Toast.makeText(context, "Plugin ${manifest.name} not supported", Toast.LENGTH_SHORT).show()
                         }
                         pluginInstance.load(context)
@@ -67,7 +67,7 @@ object PluginLoader {
 
         pluginFiles.forEach { src ->
             val dest = File(internalDir, src.name)
-            loadPlugin(context,dest)
+            loadPlugin(context, dest)
         }
 
         // Plugins register themselves in APIHolder during load()

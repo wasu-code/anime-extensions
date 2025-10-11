@@ -10,7 +10,7 @@ import java.net.URL
 data class Repository(
     val name: String,
     val description: String? = null,
-    val pluginLists: List<String> = emptyList()
+    val pluginLists: List<String> = emptyList(),
 )
 
 @Serializable
@@ -19,22 +19,22 @@ data class SitePlugin(
     val name: String,
     val version: Int,
     val description: String? = null,
-    val status: Int = 1,                // plugin status (0=down, 1=ok, 2=slow, 3=beta)
+    val status: Int = 1, // plugin status (0=down, 1=ok, 2=slow, 3=beta)
     val internalName: String,
     val repositoryUrl: String?,
     // These types are yet to be mapped and used
     val tvTypes: List<String>? = null,
-    val language: String? = null
+    val language: String? = null,
 )
 
 object RepositoryManager {
 
-    private val json = Json { ignoreUnknownKeys = true }
+    private val JSON = Json { ignoreUnknownKeys = true }
 
     suspend fun parseRepository(url: String): Repository? = withContext(Dispatchers.IO) {
         return@withContext try {
             val response = URL(url).readText()
-            json.decodeFromString<Repository>(response)
+            JSON.decodeFromString<Repository>(response)
         } catch (_: Exception) {
             null
         }
@@ -43,7 +43,7 @@ object RepositoryManager {
     suspend fun parsePlugins(url: String): List<SitePlugin> = withContext(Dispatchers.IO) {
         return@withContext try {
             val response = URL(url).readText()
-            json.decodeFromString<List<SitePlugin>>(response)
+            JSON.decodeFromString<List<SitePlugin>>(response)
         } catch (_: Exception) {
             emptyList()
         }
@@ -55,6 +55,6 @@ object RepositoryManager {
     }
 
     suspend fun getAllPlugins(repos: Set<String>): List<SitePlugin> {
-        return repos.flatMap { getRepoPlugins(it) }.distinctBy { it.url}
+        return repos.flatMap { getRepoPlugins(it) }.distinctBy { it.url }
     }
 }

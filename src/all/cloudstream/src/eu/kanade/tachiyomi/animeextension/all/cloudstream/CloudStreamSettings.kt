@@ -18,16 +18,15 @@ import eu.kanade.tachiyomi.animesource.model.AnimesPage
 import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SEpisode
 import eu.kanade.tachiyomi.animesource.online.AnimeHttpSource
-import okhttp3.Request
-import okhttp3.Response
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.Request
+import okhttp3.Response
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import kotlin.collections.ifEmpty
-
 
 class CloudStreamSettings() : AnimeHttpSource(), ConfigurableAnimeSource {
     override val lang: String = "none"
@@ -40,7 +39,6 @@ class CloudStreamSettings() : AnimeHttpSource(), ConfigurableAnimeSource {
 
     @SuppressLint("ApplySharedPref")
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
-
         val pluginsPref: MultiSelectListPreference = MultiSelectListPreference(screen.context).apply {
             key = "EXTENSIONS"
             title = "Choose plugins to install/uninstall"
@@ -80,9 +78,9 @@ class CloudStreamSettings() : AnimeHttpSource(), ConfigurableAnimeSource {
         val tvTypesFilterPref = MultiSelectListPreference(screen.context).apply {
             key = "FILTER_TVTYPE"
             title = "Filter by type"
-            entries = TvType.values().map {it.name}.toTypedArray()
-            entryValues = TvType.values().map {it.name}.toTypedArray()
-            setDefaultValue(TvType.values().map {it.name}.toSet())
+            entries = TvType.values().map { it.name }.toTypedArray()
+            entryValues = TvType.values().map { it.name }.toTypedArray()
+            setDefaultValue(TvType.values().map { it.name }.toSet())
             summary = "${preferences.getStringSet(key, emptySet())?.size}/${entries.size} selected"
         }
 
@@ -194,7 +192,7 @@ class CloudStreamSettings() : AnimeHttpSource(), ConfigurableAnimeSource {
 
         // Add preferences to screen
         screen.addPreference(reposPref)
-        screen.addPreference(pluginsPref)  // add it first, we'll populate later
+        screen.addPreference(pluginsPref) // add it first, we'll populate later
         EditTextPreference(screen.context).apply {
             summary = "Filters"
             setEnabled(false)
@@ -239,13 +237,12 @@ class CloudStreamSettings() : AnimeHttpSource(), ConfigurableAnimeSource {
             }
         }.also(screen::addPreference)
 
-        //TODO button to remove plugins from removed repos
+        // TODO button to remove plugins from removed repos
         SwitchPreferenceCompat(screen.context).apply {
             title = "Remove orphaned plugins"
             summary = "Will delete files that not listed in added repos"
             setEnabled(false)
         }.also(screen::addPreference)
-
     }
 
     /** Restart host application to force it to reload all plugins */
@@ -260,7 +257,6 @@ class CloudStreamSettings() : AnimeHttpSource(), ConfigurableAnimeSource {
         }
     }
 
-
     // Unused
     override val baseUrl: String = ""
     override val supportsLatest: Boolean = false
@@ -271,14 +267,14 @@ class CloudStreamSettings() : AnimeHttpSource(), ConfigurableAnimeSource {
     override fun popularAnimeParse(response: Response): AnimesPage = throw UnsupportedOperationException()
     override fun popularAnimeRequest(page: Int): Request = throw UnsupportedOperationException()
     override fun searchAnimeParse(response: Response): AnimesPage = throw UnsupportedOperationException()
-    override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request  = throw UnsupportedOperationException()
+    override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request = throw UnsupportedOperationException()
 }
 
 class FilterManager(
     private val preferences: SharedPreferences,
     private val pluginsPref: MultiSelectListPreference,
     private val repoFilterPref: MultiSelectListPreference,
-    private val langFilterPref: MultiSelectListPreference
+    private val langFilterPref: MultiSelectListPreference,
 ) {
     private val scope = CoroutineScope(Dispatchers.IO)
 
@@ -299,7 +295,7 @@ class FilterManager(
             ?: emptySet()
 
     private fun getSelectedStatus(): Set<String> =
-        preferences.getStringSet("FILTER_STATUS2", setOf("0","1","2","3"))
+        preferences.getStringSet("FILTER_STATUS2", setOf("0", "1", "2", "3"))
             ?: emptySet()
 
     private fun getSelectedLanguages(): Set<String> =

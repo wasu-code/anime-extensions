@@ -39,8 +39,8 @@ fun LoadResponse.toSAnime(): SAnime {
         description = plot
         status = when (this@toSAnime) {
             is AnimeLoadResponse -> showStatus?.toStatus() ?: SAnime.UNKNOWN
-            is TvSeriesLoadResponse  -> showStatus?.toStatus() ?: SAnime.UNKNOWN
-            else -> {SAnime.UNKNOWN}
+            is TvSeriesLoadResponse -> showStatus?.toStatus() ?: SAnime.UNKNOWN
+            else -> { SAnime.UNKNOWN }
         }
         initialized = true
     }
@@ -58,37 +58,38 @@ fun LoadResponse.toSEpisodeList(): List<SEpisode> {
         is AnimeLoadResponse -> episodes.values.flatten()
             .sortedWith(
                 compareByDescending<Episode> { it.season ?: Int.MIN_VALUE }
-                .thenByDescending { it.episode ?: Int.MIN_VALUE }
+                    .thenByDescending { it.episode ?: Int.MIN_VALUE },
             ).map { ep: Episode ->
-            SEpisode.create().apply {
-                name = ep.name ?: "Untitled"
-                url = ep.data
-                ep.episode?.let { episode_number = it.toFloat() }
-                ep.date?.let { date_upload = it }
+                SEpisode.create().apply {
+                    name = ep.name ?: "Untitled"
+                    url = ep.data
+                    ep.episode?.let { episode_number = it.toFloat() }
+                    ep.date?.let { date_upload = it }
+                }
             }
-        }
 
-        is TvSeriesLoadResponse -> episodes
-            .sortedWith(
-                compareByDescending<Episode> { it.season ?: Int.MIN_VALUE }
-                .thenByDescending { it.episode ?: Int.MIN_VALUE }
-            ).map { ep: Episode ->
-            SEpisode.create().apply {
-                name = ep.name ?: "Untitled"
-                url = ep.data
-                ep.episode?.let { episode_number = it.toFloat() }
-                ep.date?.let { date_upload = it }
-            }
-        }
+        is TvSeriesLoadResponse ->
+            episodes
+                .sortedWith(
+                    compareByDescending<Episode> { it.season ?: Int.MIN_VALUE }
+                        .thenByDescending { it.episode ?: Int.MIN_VALUE },
+                ).map { ep: Episode ->
+                    SEpisode.create().apply {
+                        name = ep.name ?: "Untitled"
+                        url = ep.data
+                        ep.episode?.let { episode_number = it.toFloat() }
+                        ep.date?.let { date_upload = it }
+                    }
+                }
 
         is MovieLoadResponse -> listOf(
             SEpisode.create().apply {
                 name = "Movie"
                 url = dataUrl
-            }
+            },
         )
 
-        //TODO
+        // TODO
 //        is TorrentLoadResponse
 //        is LiveStreamLoadResponse
         else -> emptyList()
@@ -98,7 +99,7 @@ fun LoadResponse.toSEpisodeList(): List<SEpisode> {
 fun HomePageResponse.toAnimePage(): AnimesPage {
     return AnimesPage(
         animes = items.flatMap { it.list }.map { it.toSAnime() },
-        hasNextPage = hasNext
+        hasNextPage = hasNext,
     )
 }
 
@@ -106,22 +107,22 @@ fun HomePageResponse.toAnimePage(): AnimesPage {
 fun SearchResponseList.toAnimePage(): AnimesPage {
     return AnimesPage(
         animes = items.map { it.toSAnime() },
-        hasNextPage = hasNext
+        hasNextPage = hasNext,
     )
 }
 
- fun ExtractorLink.toVideo(): Video {
+fun ExtractorLink.toVideo(): Video {
     return Video(
         url = url,
         quality = quality.toString(),
         videoUrl = url,
-        headers = headers.toHeaders()
+        headers = headers.toHeaders(),
     )
- }
+}
 
 fun SubtitleFile.toTrack(): Track {
     return Track(
         url = url,
-        lang = lang
+        lang = lang,
     )
 }
