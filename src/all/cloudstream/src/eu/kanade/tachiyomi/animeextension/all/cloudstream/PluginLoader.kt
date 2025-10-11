@@ -55,7 +55,7 @@ object PluginLoader {
 //                                }
 //                            }
 //                        } catch (_: NoSuchFieldException) {
-////                            Log.i("CloudStream", "Plugin ${manifest.name} has no openSettings field.")
+// //                            Log.i("CloudStream", "Plugin ${manifest.name} has no openSettings field.")
 //                        }
 
                         pluginInstance.load(context)
