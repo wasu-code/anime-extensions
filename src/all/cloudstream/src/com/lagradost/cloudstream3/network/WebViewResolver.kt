@@ -8,6 +8,7 @@ import android.os.Looper
 import android.webkit.*
 import com.lagradost.api.Log
 import com.lagradost.api.getContext
+import com.lagradost.cloudstream3.USER_AGENT
 import com.lagradost.cloudstream3.app
 import com.lagradost.cloudstream3.mvvm.debugException
 import com.lagradost.cloudstream3.mvvm.logError
@@ -21,6 +22,7 @@ import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
 import okhttp3.Request
 import okhttp3.Response
+import java.lang.IllegalArgumentException
 import java.net.URI
 
 /**
@@ -35,12 +37,12 @@ import java.net.URI
  * */
 class WebViewResolver constructor(
     val interceptUrl: Regex,
-    val additionalUrls: List<Regex>,
-    val userAgent: String?,
-    val useOkhttp: Boolean,
-    val script: String?,
-    val scriptCallback: ((String) -> Unit)?,
-    val timeout: Long
+    val additionalUrls: List<Regex> = emptyList(),
+    val userAgent: String? = USER_AGENT,
+    val useOkhttp: Boolean = true,
+    val script: String? = null,
+    val scriptCallback: ((String) -> Unit)? = null,
+    val timeout: Long = DEFAULT_TIMEOUT
 ) :
     Interceptor {
 
@@ -93,7 +95,7 @@ class WebViewResolver constructor(
             resolveUsingWebView(
                 requestCreator(method, url, referer = referer, headers = headers), requestCallBack
             )
-        } catch (e: java.lang.IllegalArgumentException) {
+        } catch (e: IllegalArgumentException) {
             logError(e)
             debugException { "ILLEGAL URL IN resolveUsingWebView!" }
             return null to emptyList()
