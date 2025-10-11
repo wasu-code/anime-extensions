@@ -1052,7 +1052,7 @@ enum class AutoDownloadMode(val value: Int) {
 
     companion object {
         infix fun getEnum(value: Int): AutoDownloadMode? =
-            entries.firstOrNull { it.value == value }
+            values().firstOrNull { it.value == value }
     }
 }
 
@@ -1103,7 +1103,7 @@ fun TvType.isAnimeOp(): Boolean {
  * @property url Subtitle file url to download/load the file.
  * @see newSubtitleFile
  * */
-@ConsistentCopyVisibility
+//@ConsistentCopyVisibility
 data class SubtitleFile private constructor(
     var lang: String,
     var url: String,
@@ -2324,6 +2324,7 @@ constructor(
         }.toMap()
     }
 
+    @OptIn(ExperimentalStdlibApi::class)
     override fun getTotalEpisodeIndex(episode: Int, season: Int): Int {
         val displayMap = this.seasonNames?.associate { it.season to it.displaySeason } ?: emptyMap()
 
@@ -2814,6 +2815,7 @@ constructor(
         return mapOf(DubStatus.None to max)
     }
 
+    @OptIn(ExperimentalStdlibApi::class)
     override fun getTotalEpisodeIndex(episode: Int, season: Int): Int {
         val displayMap = this.seasonNames?.associate { it.season to it.displaySeason } ?: emptyMap()
 

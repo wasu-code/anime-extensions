@@ -136,7 +136,7 @@ open class TraktProvider : MainAPI() {
         val isCartoon =
             mediaDetails?.genres?.contains("animation") == true || mediaDetails?.genres?.contains("anime") == true
         val isAnime =
-            isCartoon && (mediaDetails.language == "zh" || mediaDetails.language == "ja")
+            isCartoon && (mediaDetails?.language == "zh" || mediaDetails?.language == "ja")
         val isAsian = !isAnime && (mediaDetails?.language == "zh" || mediaDetails?.language == "ko")
         val isBollywood = mediaDetails?.country == "in"
         val uniqueUrl = data.mediaDetails?.ids?.trakt?.toJson() ?: data.toJson()
