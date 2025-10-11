@@ -12,7 +12,7 @@ class CloudStreamFactory : AnimeSourceFactory {
 
     override fun createSources(): List<AnimeSource> {
         val apis = PluginLoader.loadAllPlugins(context)
-        Log.d("CloudStream", "Loaded ${apis.size}")
+        Log.d("CloudStream", "Loaded ${apis.size} sources")
         return apis.map { api -> MainApiAdapter(api) } + CloudStreamSettings()
     }
 }

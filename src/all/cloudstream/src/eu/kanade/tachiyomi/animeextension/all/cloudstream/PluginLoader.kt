@@ -28,6 +28,7 @@ object PluginLoader {
             // Pass extension's classloader as parent (not Aniyomi's) so Cloudstream core classes
             // (like BasePlugin, MainAPI) that are bundled in this library are available
             val loader = PathClassLoader(file.absolutePath, this::class.java.classLoader)
+
             loader.getResourceAsStream("manifest.json").use { stream ->
                 if (stream == null) return false
                 InputStreamReader(stream).use { reader ->
@@ -36,12 +37,27 @@ object PluginLoader {
                     val pluginInstance = pluginClass.getDeclaredConstructor().newInstance() as BasePlugin
 
                     if (pluginInstance is Plugin) {
-                        Log.d("CloudStream", "Class Plugin not yet fully supported: ${manifest.name} ($file)")
+                        Log.d("CloudStream", "Class 'Plugin' not yet fully supported: ${manifest.name} ($file)")
 
                         val hasOpenSettings = pluginInstance.openSettings != null
                         hasOpenSettings && HANDLER.post {
                             Toast.makeText(context, "Plugin ${manifest.name} not supported", Toast.LENGTH_SHORT).show()
                         }
+
+                        // Inject our own openSettings handler if present
+//                        try {
+//                            val field = pluginInstance.javaClass.getDeclaredField("openSettings")
+//                            field.isAccessible = true
+//                            field.set(pluginInstance) { _: Context ->
+//                                Log.w("CloudStream", "Plugin ${manifest.name} has openSettings field.")
+//                                HANDLER.post {
+//                                    Toast.makeText(context, "Plugin ${manifest.name} not supported", Toast.LENGTH_SHORT).show()
+//                                }
+//                            }
+//                        } catch (_: NoSuchFieldException) {
+////                            Log.i("CloudStream", "Plugin ${manifest.name} has no openSettings field.")
+//                        }
+
                         pluginInstance.load(context)
                     } else {
                         pluginInstance.load()
@@ -51,7 +67,7 @@ object PluginLoader {
             }
         } catch (e: Throwable) {
             // Skip invalid plugins
-            Log.d("CloudStream", "Failed to load $file")
+            Log.d("CloudStream", "Failed to load $file caused by ${e::class.simpleName}")
             e.printStackTrace()
         }
         return false
