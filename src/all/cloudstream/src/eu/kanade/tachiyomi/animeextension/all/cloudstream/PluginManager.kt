@@ -50,6 +50,12 @@ object PluginManager {
 
     fun getPluginCount(): Int = EXTENSIONS_DIR.listFiles()?.size ?: 0
 
+    fun isPluginInstalled(pluginUrl: String): Boolean {
+        // TODO: cache file list in installedPlugins
+        val file = File(EXTENSIONS_DIR, "${pluginUrl.hashCode()}.cs3")
+        return file.exists()
+    }
+
     private fun write(stream: InputStream, output: OutputStream) {
         val input = BufferedInputStream(stream)
         val dataBuffer = ByteArray(512)
