@@ -50,8 +50,9 @@ object PluginManager {
 
     fun getPluginCount(): Int = EXTENSIONS_DIR.listFiles()?.size ?: 0
 
+    fun getInstalledPlugins() = EXTENSIONS_DIR.listFiles()
+
     fun isPluginInstalled(pluginUrl: String): Boolean {
-        // TODO: cache file list in installedPlugins
         val file = File(EXTENSIONS_DIR, "${pluginUrl.hashCode()}.cs3")
         return file.exists()
     }

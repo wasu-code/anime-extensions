@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.widget.Toast
+import androidx.preference.CheckBoxPreference
 import androidx.preference.EditTextPreference
 import androidx.preference.MultiSelectListPreference
 import androidx.preference.PreferenceScreen
@@ -26,6 +27,7 @@ import okhttp3.Request
 import okhttp3.Response
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import java.io.File
 import java.net.URL
 
 class CloudStreamSettings() : AnimeHttpSource(), ConfigurableAnimeSource {
@@ -58,6 +60,7 @@ class CloudStreamSettings() : AnimeHttpSource(), ConfigurableAnimeSource {
         val langFilterPref = fm.makeLangFilter(screen.context)
         val typeFilterPref = fm.makeTypeFilter(screen.context)
         val statusFilterPref = fm.makeStatusFilter(screen.context)
+        val installedOnlyFilterPref = fm.makeInstalledOnlyFilter(screen.context)
 
         screen.addPreference(reposPref)
         screen.addPreference(PreferenceDivider(smallText = "Filters", context = screen.context))
@@ -65,6 +68,7 @@ class CloudStreamSettings() : AnimeHttpSource(), ConfigurableAnimeSource {
         screen.addPreference(langFilterPref)
         screen.addPreference(typeFilterPref)
         screen.addPreference(statusFilterPref)
+        screen.addPreference(installedOnlyFilterPref)
 
         screen.addPreference(PreferenceDivider(bigText = "ℹ️ To apply filters, reenter settings screen", context = screen.context))
 
@@ -104,7 +108,15 @@ class CloudStreamSettings() : AnimeHttpSource(), ConfigurableAnimeSource {
                 if (plugins.isNotEmpty()) {
                     PreferenceDivider(smallText = "Showing ${plugins.size} plugins", context = screen.context).also(screen::addPreference)
                     plugins.forEach { plugin ->
-                        screen.addPreference(createPluginSwitch(screen.context, context, plugin, scope))
+                        screen.addPreference(
+                            createPluginSwitch(
+                                screen.context,
+                                context,
+                                plugin,
+                                scope,
+                                fm.isPluginInstalled(plugin.url),
+                            ),
+                        )
                     }
                 } else {
                     PreferenceDivider(smallText = "No plugins match current filters", context = screen.context).also(screen::addPreference)
@@ -113,7 +125,7 @@ class CloudStreamSettings() : AnimeHttpSource(), ConfigurableAnimeSource {
         }
     }
 
-    private fun createPluginSwitch(context: Context, appContext: Application, plugin: SitePlugin, scope: CoroutineScope): SwitchPreferenceCompat {
+    private fun createPluginSwitch(context: Context, appContext: Application, plugin: SitePlugin, scope: CoroutineScope, isInstalled: Boolean = false): SwitchPreferenceCompat {
         return SwitchPreferenceCompat(context).apply {
             title = "${plugin.name} (${plugin.language?.uppercase() ?: "ALL"})"
             summary = """
@@ -124,7 +136,7 @@ class CloudStreamSettings() : AnimeHttpSource(), ConfigurableAnimeSource {
             status: ${arrayOf("Down", "Ok", "Slow", "Beta")[plugin.status]}
             """.trimIndent()
 
-            val installed = PluginManager.isPluginInstalled(plugin.url)
+            val installed = isInstalled
             setDefaultValue(installed)
             setEnabled(installed || plugin.status > 0)
 
@@ -193,6 +205,8 @@ class FilterManager(private val prefs: SharedPreferences) {
 
     @Volatile private var cachedPlugins: List<SitePlugin> = emptyList()
 
+    @Volatile private var installedPlugins: Array<File> = emptyArray()
+
     fun getRepos(): Set<String> =
         prefs.getString("REPOS", "")
             ?.lines()?.filter { it.isNotBlank() }?.toSet() ?: emptySet()
@@ -205,14 +219,23 @@ class FilterManager(private val prefs: SharedPreferences) {
         return cachedPlugins
     }
 
+    fun getInstalledPlugins(): Array<File> {
+        if (installedPlugins.isEmpty()) installedPlugins = PluginManager.getInstalledPlugins() ?: emptyArray()
+        return installedPlugins
+    }
+
+    fun isPluginInstalled(pluginUrl: String) = PluginManager.isPluginInstalled(pluginUrl)
+
     suspend fun getFilteredPlugins(): List<SitePlugin> {
         if (cachedPlugins.isEmpty()) cachedPlugins = RepositoryManager.getAllPlugins(getFilteredRepos())
         val selectedLangs = prefs.getStringSet("FILTER_LANGUAGE", emptySet()) ?: emptySet()
         val selectedTypes = prefs.getStringSet("FILTER_TVTYPE", TvType.values().map { it.name }.toSet()) ?: emptySet()
         val selectedStatus = prefs.getStringSet("FILTER_STATUS", setOf("0", "1", "2", "3")) ?: emptySet()
+        val installedOnly = prefs.getBoolean("FILTER_INSTALLED_ONLY", false)
 
         return cachedPlugins.filter { plugin ->
-            (plugin.tvTypes.isNullOrEmpty() || plugin.tvTypes.any { it in selectedTypes }) &&
+            (!installedOnly || isPluginInstalled(plugin.url)) &&
+                (plugin.tvTypes.isNullOrEmpty() || plugin.tvTypes.any { it in selectedTypes }) &&
                 (plugin.status.toString() in selectedStatus) &&
                 (selectedLangs.isEmpty() || plugin.language.isNullOrBlank() || plugin.language in selectedLangs)
         }
@@ -228,8 +251,7 @@ class FilterManager(private val prefs: SharedPreferences) {
         summary = "${values.size} repo(s) selected"
         setDefaultValue(repos)
         setOnPreferenceChangeListener { pref, newValue ->
-            prefs.edit().putStringSet(pref.key, newValue as Set<String>).commit()
-            summary = "${newValue.size} repo(s) selected"
+            summary = "${(newValue as Set<String>).size} repo(s) selected"
             true
         }
     }
@@ -262,8 +284,7 @@ class FilterManager(private val prefs: SharedPreferences) {
         }
 
         pref.setOnPreferenceChangeListener { p, newValue ->
-            prefs.edit().putStringSet(p.key, newValue as Set<String>).commit()
-            p.summary = "${newValue.size}/${(p as MultiSelectListPreference).entries.size} selected"
+            p.summary = "${(newValue as Set<String>).size}/${(p as MultiSelectListPreference).entries.size} selected"
             true
         }
 
@@ -277,10 +298,6 @@ class FilterManager(private val prefs: SharedPreferences) {
         entryValues = entries
         setDefaultValue(entries.toSet())
         summary = "${(prefs.getStringSet(key, emptySet())?.size) ?: 0}/${entries.size} selected"
-        setOnPreferenceChangeListener { pref, newValue ->
-            prefs.edit().putStringSet(pref.key, newValue as Set<String>).commit()
-            true
-        }
     }
 
     fun makeStatusFilter(context: Context) = MultiSelectListPreference(context).apply {
@@ -290,9 +307,11 @@ class FilterManager(private val prefs: SharedPreferences) {
         entryValues = arrayOf("0", "1", "2", "3")
         setDefaultValue(setOf("0", "1", "2", "3"))
         summary = "${(prefs.getStringSet(key, emptySet())?.size) ?: 0}/${entries.size} selected"
-        setOnPreferenceChangeListener { pref, newValue ->
-            prefs.edit().putStringSet(pref.key, newValue as Set<String>).commit()
-            true
-        }
+    }
+
+    fun makeInstalledOnlyFilter(context: Context) = CheckBoxPreference(context).apply {
+        key = "FILTER_INSTALLED_ONLY"
+        title = "Show only installed plugins"
+        setDefaultValue(false)
     }
 }
