@@ -30,6 +30,17 @@ import uy.kohesive.injekt.api.get
 import java.io.File
 import java.net.URL
 
+fun Context.getActivity(): android.app.Activity? {
+    var context = this
+    while (context is android.content.ContextWrapper) {
+        if (context is android.app.Activity) {
+            return context
+        }
+        context = context.baseContext
+    }
+    return null
+}
+
 class CloudStreamSettings() : AnimeHttpSource(), ConfigurableAnimeSource {
     override val lang: String = "none"
     override val name: String = "! CloudStream Settings"
@@ -70,19 +81,31 @@ class CloudStreamSettings() : AnimeHttpSource(), ConfigurableAnimeSource {
         screen.addPreference(statusFilterPref)
         screen.addPreference(installedOnlyFilterPref)
 
-        screen.addPreference(PreferenceDivider(bigText = "ℹ️ To apply filters, reenter settings screen", context = screen.context))
+        ButtonPreference(screen.context).apply {
+            key = "PLUGINS_REFRESH"
+            title = "✅ Apply filters"
+            onClick = { screen.context.getActivity()?.recreate() }
+        }.also(screen::addPreference)
 
-        screen.addPreference(PreferenceDivider(smallText = "Manage plugins", context = screen.context))
+        ButtonPreference(screen.context).apply {
+            key = "APP_RESTART"
+            title = "🔄 Restart app"
+            summary = "Restart app to (un)load (un)installed plugins"
+            onClick = { restartApp(context) }
+        }.also(screen::addPreference)
 
-        val purgePref = SwitchPreferenceCompat(screen.context).apply {
+        PreferenceDivider(
+            screen.context,
+            smallText = "Manage plugins",
+        ).also(screen::addPreference)
+
+        ConfirmActionPreference(screen.context).apply {
             key = "PLUGINS_PURGE"
             title = "Purge all plugin files"
-            setDefaultValue(false)
+            dialogMessage = "This will remove all installed CloudStream plugins"
+            onConfirm = { screen.context.getActivity()?.recreate() }
             summary = "${PluginManager.getPluginCount()} plugin(s) installed, ${APIHolder.allProviders.size} provider(s) loaded"
-            setOnPreferenceClickListener { pref ->
-                val switchPref = pref as SwitchPreferenceCompat
-                switchPref.isChecked = false
-
+            onConfirm = {
                 scope.launch {
                     setEnabled(false)
                     val success = PluginManager.deleteAllPluginFiles()
@@ -90,12 +113,11 @@ class CloudStreamSettings() : AnimeHttpSource(), ConfigurableAnimeSource {
                         Toast.makeText(screen.context, "All plugin files deleted? $success", Toast.LENGTH_SHORT).show()
                         setEnabled(true)
                         preferences.edit().putStringSet("EXTENSIONS", emptySet()).commit()
+                        screen.context.getActivity()?.recreate()
                     }
                 }
-                false
             }
-        }
-        screen.addPreference(purgePref)
+        }.also(screen::addPreference)
 
         loadPluginList(screen, fm, scope)
     }
@@ -188,14 +210,6 @@ class CloudStreamSettings() : AnimeHttpSource(), ConfigurableAnimeSource {
     override fun popularAnimeRequest(page: Int): Request = throw UnsupportedOperationException()
     override fun searchAnimeParse(response: Response): AnimesPage = throw UnsupportedOperationException()
     override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request = throw UnsupportedOperationException()
-}
-
-class PreferenceDivider(context: Context, bigText: String? = null, smallText: String? = null) : EditTextPreference(context) {
-    init {
-        title = bigText
-        summary = smallText
-        setEnabled(false)
-    }
 }
 
 @Suppress("UNCHECKED_CAST")
