@@ -101,6 +101,10 @@ class MainApiAdapter(
         return loadResponse?.toSEpisodeList() ?: emptyList()
     }
 
+    override fun getEpisodeUrl(episode: SEpisode): String {
+        return if (episode.url.startsWith("http")) episode.url else super.getEpisodeUrl(episode)
+    }
+
     override fun episodeListParse(response: Response): List<SEpisode> = throw UnsupportedOperationException()
 
     // === Video Streams ===
@@ -130,6 +134,6 @@ class MainApiAdapter(
     override fun videoListParse(response: Response): List<Video> = throw UnsupportedOperationException()
 
     override fun getAnimeUrl(anime: SAnime): String {
-        return if (anime.url.startsWith(baseUrl)) anime.url else super.getAnimeUrl(anime)
+        return if (anime.url.startsWith("http")) anime.url else super.getAnimeUrl(anime)
     }
 }
