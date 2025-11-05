@@ -15,7 +15,7 @@ class AnyWebUrlActivity : Activity() {
 
         if (url != null) {
             val mainIntent = Intent().apply {
-                action = "eu.kanade.tachiyomi.SEARCH"
+                action = "eu.kanade.tachiyomi.ANIMESEARCH"
                 putExtra("query", url)
                 putExtra("filter", packageName)
             }
