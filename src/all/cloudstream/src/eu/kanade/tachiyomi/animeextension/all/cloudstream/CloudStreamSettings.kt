@@ -13,18 +13,16 @@ import androidx.preference.PreferenceScreen
 import androidx.preference.SwitchPreferenceCompat
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.TvType
+import eu.kanade.tachiyomi.animesource.AnimeSource
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
-import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
-import eu.kanade.tachiyomi.animesource.model.AnimesPage
 import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SEpisode
-import eu.kanade.tachiyomi.animesource.online.AnimeHttpSource
+import eu.kanade.tachiyomi.animesource.model.Video
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import okhttp3.Request
-import okhttp3.Response
+import rx.Observable
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.File
@@ -41,9 +39,11 @@ fun Context.getActivity(): android.app.Activity? {
     return null
 }
 
-class CloudStreamSettings() : AnimeHttpSource(), ConfigurableAnimeSource {
-    override val lang: String = "none"
-    override val name: String = "! CloudStream Settings"
+class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
+    override val id: Long = 133745
+    val lang: String = "all"
+    override val name: String = "!➲ CloudStream Settings"
+    override fun toString(): String = name
 
     private val context = Injekt.get<Application>()
     private val preferences: SharedPreferences by lazy {
@@ -63,6 +63,7 @@ class CloudStreamSettings() : AnimeHttpSource(), ConfigurableAnimeSource {
             setOnPreferenceChangeListener { _, newValue ->
                 preferences.edit().putString(key, newValue as String).commit()
                 summary = "${newValue.lines().filter { it.isNotBlank() }.size} repo(s) added"
+                screen.context.getActivity()?.recreate()
                 true
             }
         }
@@ -200,16 +201,12 @@ class CloudStreamSettings() : AnimeHttpSource(), ConfigurableAnimeSource {
     }
 
     // Unused
-    override val baseUrl: String = ""
-    override val supportsLatest: Boolean = false
-    override fun animeDetailsParse(response: Response): SAnime = throw UnsupportedOperationException()
-    override fun episodeListParse(response: Response): List<SEpisode> = throw UnsupportedOperationException()
-    override fun latestUpdatesParse(response: Response): AnimesPage = throw UnsupportedOperationException()
-    override fun latestUpdatesRequest(page: Int): Request = throw UnsupportedOperationException()
-    override fun popularAnimeParse(response: Response): AnimesPage = throw UnsupportedOperationException()
-    override fun popularAnimeRequest(page: Int): Request = throw UnsupportedOperationException()
-    override fun searchAnimeParse(response: Response): AnimesPage = throw UnsupportedOperationException()
-    override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request = throw UnsupportedOperationException()
+    override fun fetchAnimeDetails(anime: SAnime): Observable<SAnime> = throw UnsupportedOperationException("Not Used")
+    override fun fetchEpisodeList(anime: SAnime): Observable<List<SEpisode>> = throw UnsupportedOperationException("Not Used")
+    override fun fetchVideoList(episode: SEpisode): Observable<List<Video>> = throw UnsupportedOperationException("Not Used")
+    override suspend fun getAnimeDetails(anime: SAnime): SAnime = throw UnsupportedOperationException("Not Used")
+    override suspend fun getEpisodeList(anime: SAnime): List<SEpisode> = throw UnsupportedOperationException("Not Used")
+    override suspend fun getVideoList(episode: SEpisode): List<Video> = throw UnsupportedOperationException("Not Used")
 }
 
 @Suppress("UNCHECKED_CAST")
@@ -276,6 +273,7 @@ class FilterManager(private val prefs: SharedPreferences) {
         pref.title = "Filter by language"
         pref.summary = "Loading..."
         pref.setEnabled(false)
+        pref.setDefaultValue(emptySet<String>())
 
         // Load available languages asynchronously
         scope.launch {
@@ -289,7 +287,6 @@ class FilterManager(private val prefs: SharedPreferences) {
             withContext(Dispatchers.Main) {
                 pref.entries = langs.toTypedArray()
                 pref.entryValues = langs.toTypedArray()
-                pref.setDefaultValue(langs.toSet())
                 pref.setEnabled(langs.isNotEmpty())
 
                 val selected = prefs.getStringSet(pref.key, emptySet()) ?: emptySet()
