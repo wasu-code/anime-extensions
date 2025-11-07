@@ -209,7 +209,9 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
         val intent = packageManager.getLaunchIntentForPackage(context.packageName)
         val componentName = intent?.component
         if (componentName != null) {
-            val restartIntent = Intent.makeRestartActivityTask(componentName)
+            val restartIntent = Intent.makeRestartActivityTask(componentName).apply {
+                action = "eu.kanade.tachiyomi.SHOW_CATALOGUES"
+            }
             context.startActivity(restartIntent)
             Runtime.getRuntime().exit(0) // kill old process after scheduling restart
         }
