@@ -10,20 +10,25 @@ ext {
 apply from: "$rootDir/common.gradle"
 
 dependencies {
-    //noinspection UseTomlInstead
-    implementation("com.google.code.gson:gson:2.13.2")
-    //// CloudStream dependencies
+    // CloudStream library dependencies
+    // https://github.com/recloudstream/cloudstream/blob/master/library/build.gradle.kts#L35-L43
+
     //noinspection UseTomlInstead
     implementation("com.github.Blatzar:NiceHttp:0.4.13")
-    // NOTE: Keep Jackson pinned, newer versions break old Androids
+
+    // NOTE from CloudStream: Keep Jackson pinned, newer versions break old Androids
     //noinspection NewerVersionAvailable,UseTomlInstead
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.13.1")
+
     //noinspection UseTomlInstead
     implementation("org.mozilla:rhino:1.8.0")
+
     //noinspection UseTomlInstead
     implementation("com.github.teamnewpipe:NewPipeExtractor:v0.24.6")
+
     //noinspection UseTomlInstead
     implementation("com.uwetrottmann.tmdb2:tmdb-java:2.13.0")
+
     //noinspection UseTomlInstead
     implementation("me.xdrop:fuzzywuzzy:1.4.0")
 }

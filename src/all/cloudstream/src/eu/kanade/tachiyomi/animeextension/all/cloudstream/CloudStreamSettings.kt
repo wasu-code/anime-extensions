@@ -42,7 +42,7 @@ fun Context.getActivity(): android.app.Activity? {
 class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
     override val id: Long = 133745
     val lang: String = "all"
-    override val name: String = "!➲ CloudStream Settings"
+    override val name: String = "! ▆▇█ CloudStream Settings █▇▆ !"
     override fun toString(): String = name
 
     private val context = Injekt.get<Application>()
@@ -54,6 +54,21 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
         val scope = CoroutineScope(Dispatchers.IO)
         val fm = FilterManager(preferences)
+
+        // Check host app compatibility with this extension
+        val clazz = com.google.gson.stream.JsonReader::class.java
+        val methodName = "setStrictness" // available only in gson v2.11+
+        val hasMethod = clazz.methods.any { it.name == methodName }
+        if (!hasMethod) {
+            PreferenceDivider(
+                screen.context,
+                bigText = "⚠️",
+                smallText = """
+                    Your host app (${context.applicationInfo.loadLabel(context.packageManager)}) uses an outdated version of the gson library (older than v2.11.0).
+                    Some extensions may not work properly (and throw NoSuchMethodError for setStrictness).
+                """.trimIndent(),
+            ).also(screen::addPreference)
+        }
 
         val reposPref = EditTextPreference(screen.context).apply {
             key = "REPOS"
