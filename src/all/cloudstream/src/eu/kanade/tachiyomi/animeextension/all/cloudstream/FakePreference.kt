@@ -16,10 +16,7 @@ import androidx.preference.SwitchPreferenceCompat
  */
 class ConfirmActionPreference(
     context: Context,
-    var onConfirm: () -> Unit = {},
-    var showDivider: Boolean = false,
 ) : EditTextPreference(context) {
-
     init {
         // Called when OK is clicked
         setOnPreferenceChangeListener { _, _ ->
@@ -37,6 +34,9 @@ class ConfirmActionPreference(
             }
         }
     }
+
+    var onConfirm: () -> Unit = {}
+    var showDivider: Boolean = false
 }
 
 /**
@@ -47,25 +47,30 @@ class ConfirmActionPreference(
  */
 class ButtonPreference(
     context: Context,
-    var onClick: () -> Unit = {},
 ) : SwitchPreferenceCompat(context) {
     init {
         setDefaultValue(false)
-        setOnPreferenceChangeListener { pref, _ ->
+        setOnPreferenceChangeListener { _, _ ->
             onClick()
             false // prevent from switching to toggled state
         }
     }
+
+    var onClick: () -> Unit = {}
 }
 
 class PreferenceDivider(
     context: Context,
-    var bigText: String? = null,
-    var smallText: String? = null,
 ) : EditTextPreference(context) {
     init {
-        title = bigText
-        summary = smallText
         setEnabled(false)
     }
+
+    var bigText: String?
+        set(value) { title = value }
+        get() = title.toString()
+
+    var smallText: String?
+        set(value) { summary = value }
+        get() = summary.toString()
 }
