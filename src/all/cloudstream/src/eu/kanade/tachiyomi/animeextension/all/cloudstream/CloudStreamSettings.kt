@@ -79,7 +79,7 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
             setOnPreferenceChangeListener { _, newValue ->
                 preferences.edit().putString(key, newValue as String).commit()
                 summary = "${newValue.lines().filter { it.isNotBlank() }.size} repo(s) added"
-                screen.context.getActivity()?.recreate()
+                fm.applyFilters(screen.context)
                 true
             }
         }
@@ -97,12 +97,6 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
         screen.addPreference(typeFilterPref)
         screen.addPreference(statusFilterPref)
         screen.addPreference(installedOnlyFilterPref)
-
-        ButtonPreference(screen.context).apply {
-            key = "PLUGINS_REFRESH"
-            title = "✅ Apply filters"
-            onClick = { screen.context.getActivity()?.recreate() }
-        }.also(screen::addPreference)
 
         ButtonPreference(screen.context).apply {
             key = "APP_RESTART"
@@ -298,6 +292,8 @@ class FilterManager(private val prefs: SharedPreferences) {
 
     fun isPluginInstalled(pluginUrl: String) = PluginManager.isPluginInstalled(pluginUrl)
 
+    fun applyFilters(context: Context) { context.getActivity()?.recreate() }
+
     // Functions for creating preferences
     fun makeRepoFilter(context: Context) = MultiSelectListPreference(context).apply {
         key = "FILTER_REPO"
@@ -318,6 +314,7 @@ class FilterManager(private val prefs: SharedPreferences) {
             summary = "${selected.size} repo(s) selected"
             prefs.edit().putStringSet(key, selected).commit()
             (pref as MultiSelectListPreference).values = selected
+            applyFilters(context)
             false // skip default saving (updated values already saved manually)
         }
     }
@@ -351,6 +348,7 @@ class FilterManager(private val prefs: SharedPreferences) {
 
         pref.setOnPreferenceChangeListener { p, newValue ->
             p.summary = "${(newValue as Set<String>).size}/${(p as MultiSelectListPreference).entries.size} selected"
+            applyFilters(context)
             true
         }
 
@@ -364,6 +362,10 @@ class FilterManager(private val prefs: SharedPreferences) {
         entryValues = entries
         setDefaultValue(entries.toSet())
         summary = "${(prefs.getStringSet(key, emptySet())?.size) ?: 0}/${entries.size} selected"
+        setOnPreferenceChangeListener { _, _ ->
+            applyFilters(context)
+            true
+        }
     }
 
     fun makeStatusFilter(context: Context) = MultiSelectListPreference(context).apply {
@@ -373,11 +375,19 @@ class FilterManager(private val prefs: SharedPreferences) {
         entryValues = arrayOf("0", "1", "2", "3")
         setDefaultValue(setOf("0", "1", "2", "3"))
         summary = "${(prefs.getStringSet(key, emptySet())?.size) ?: 0}/${entries.size} selected"
+        setOnPreferenceChangeListener { _, _ ->
+            applyFilters(context)
+            true
+        }
     }
 
     fun makeInstalledOnlyFilter(context: Context) = CheckBoxPreference(context).apply {
         key = "FILTER_INSTALLED_ONLY"
         title = "Show only installed plugins"
         setDefaultValue(false)
+        setOnPreferenceChangeListener { _, _ ->
+            applyFilters(context)
+            true
+        }
     }
 }
