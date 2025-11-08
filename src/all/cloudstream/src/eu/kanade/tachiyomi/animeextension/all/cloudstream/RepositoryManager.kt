@@ -4,6 +4,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonPrimitive
 import java.net.URL
 
 @Serializable
@@ -56,5 +61,21 @@ object RepositoryManager {
 
     suspend fun getAllPlugins(repos: Set<String>): List<SitePlugin> {
         return repos.flatMap { getRepoPlugins(it) }.distinctBy { it.url }
+    }
+
+    suspend fun getWellKnownRepos(): List<String> = withContext(Dispatchers.IO) {
+        val jsonUrl = "https://raw.githubusercontent.com/recloudstream/cs-repos/refs/heads/master/repos-db.json"
+        val text = URL(jsonUrl).readText()
+
+        val json = Json { ignoreUnknownKeys = true }
+        val element = json.parseToJsonElement(text)
+
+        return@withContext element.jsonArray.mapNotNull { item ->
+            when (item) {
+                is JsonPrimitive -> item.contentOrNull
+                is JsonObject -> item["url"]?.jsonPrimitive?.contentOrNull
+                else -> null
+            }
+        }
     }
 }

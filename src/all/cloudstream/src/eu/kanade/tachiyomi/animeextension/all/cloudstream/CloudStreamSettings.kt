@@ -21,7 +21,8 @@ import eu.kanade.tachiyomi.animesource.model.Video
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import rx.Observable
 import uy.kohesive.injekt.Injekt
@@ -37,6 +38,12 @@ fun Context.getActivity(): android.app.Activity? {
         context = context.baseContext
     }
     return null
+}
+object PluginCache {
+    private val PLUGIN_MAP = mutableMapOf<String, List<SitePlugin>>()
+
+    fun get(repoUrl: String): List<SitePlugin>? = PLUGIN_MAP[repoUrl]
+    fun put(repoUrl: String, plugins: List<SitePlugin>) { PLUGIN_MAP[repoUrl] = plugins }
 }
 
 class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
@@ -71,7 +78,7 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
             }.also(screen::addPreference)
         }
 
-        val reposPref = EditTextPreference(screen.context).apply {
+        EditTextPreference(screen.context).apply {
             key = "REPOS"
             title = "Plugin repositories"
             summary = "${preferences.getString(key, "")?.lines()?.filter { it.isNotBlank() }?.size ?: 0} repo(s) added"
@@ -82,21 +89,32 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
                 fm.applyFilters(screen.context)
                 true
             }
-        }
+        }.also(screen::addPreference)
 
-        val repoFilterPref = fm.makeRepoFilter(screen.context)
-        val langFilterPref = fm.makeLangFilter(screen.context)
-        val typeFilterPref = fm.makeTypeFilter(screen.context)
-        val statusFilterPref = fm.makeStatusFilter(screen.context)
-        val installedOnlyFilterPref = fm.makeInstalledOnlyFilter(screen.context)
+        ButtonPreference(screen.context).apply {
+            key = "BTN_ADD_ALL"
+            title = "Add all well known repos"
+            summary = "Add all well known plugin repositories."
+            onClick = {
+                scope.launch {
+                    val userRepos = fm.getRepos()
+                    val wellKnownRepos = RepositoryManager.getWellKnownRepos()
+                    val allRepos = (userRepos + wellKnownRepos).toSet()
+                    preferences.edit().putString("REPOS", allRepos.joinToString("\n")).commit()
+                    withContext(Dispatchers.Main) {
+                        fm.applyFilters(screen.context)
+                    }
+                }
+            }
+        }.also(screen::addPreference)
 
-        screen.addPreference(reposPref)
-        screen.addPreference(PreferenceDivider(context = screen.context).apply { smallText = "Filters" })
-        screen.addPreference(repoFilterPref)
-        screen.addPreference(langFilterPref)
-        screen.addPreference(typeFilterPref)
-        screen.addPreference(statusFilterPref)
-        screen.addPreference(installedOnlyFilterPref)
+        PreferenceDivider(context = screen.context).apply { smallText = "Filters" }.also(screen::addPreference)
+
+        fm.makeRepoFilter(screen.context).also(screen::addPreference)
+        fm.makeLangFilter(screen.context).also(screen::addPreference)
+        fm.makeTypeFilter(screen.context).also(screen::addPreference)
+        fm.makeStatusFilter(screen.context).also(screen::addPreference)
+        fm.makeInstalledOnlyFilter(screen.context).also(screen::addPreference)
 
         ButtonPreference(screen.context).apply {
             key = "APP_RESTART"
@@ -123,7 +141,7 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
                         Toast.makeText(screen.context, "All plugin files deleted? $success", Toast.LENGTH_SHORT).show()
                         setEnabled(true)
                         preferences.edit().putStringSet("EXTENSIONS", emptySet()).commit()
-                        screen.context.getActivity()?.recreate()
+                        fm.applyFilters(screen.context)
                     }
                 }
             }
@@ -234,7 +252,6 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
 @Suppress("UNCHECKED_CAST")
 @SuppressLint("ApplySharedPref")
 class FilterManager(private val prefs: SharedPreferences) {
-
     companion object {
         @Volatile private var instance: FilterManager? = null
         fun getInstance(prefs: SharedPreferences): FilterManager = instance ?: synchronized(this) {
@@ -243,16 +260,24 @@ class FilterManager(private val prefs: SharedPreferences) {
     }
 
     private val scope = CoroutineScope(Dispatchers.IO)
-    private val pluginCache = mutableMapOf<String, List<SitePlugin>>()
+
+    private val repoMutexMap = mutableMapOf<String, Mutex>()
 
     /**
      * Return list of plugins for given repository URL.
      * Will used cached list if available or fetch and add them to cache.
      */
     suspend fun getPluginsForRepo(repoUrl: String): List<SitePlugin> {
-        pluginCache[repoUrl]?.let { return it }
+        // Return cached if available
+        PluginCache.get(repoUrl)?.let { return it }
 
-        return RepositoryManager.getRepoPlugins(repoUrl).also { pluginCache[repoUrl] = it }
+        val mutex = repoMutexMap.getOrPut(repoUrl) { Mutex() }
+        return mutex.withLock {
+            // Double-check cache inside lock
+            PluginCache.get(repoUrl)?.let { return it }
+
+            RepositoryManager.getRepoPlugins(repoUrl).also { PluginCache.put(repoUrl, it) }
+        }
     }
 
     /**
@@ -271,12 +296,12 @@ class FilterManager(private val prefs: SharedPreferences) {
     /**
      * Return list of all plugins across all repositories enabled in [makeRepoFilter].
      */
-    fun getPlugins(): List<SitePlugin> = getFilteredRepos().flatMap { runBlocking { getPluginsForRepo(it) } }
+    suspend fun getPlugins(): List<SitePlugin> = getFilteredRepos().flatMap { getPluginsForRepo(it) }
 
     /**
      * Return list of plugins matching current filter settings.
      */
-    fun getFilteredPlugins(): List<SitePlugin> {
+    suspend fun getFilteredPlugins(): List<SitePlugin> {
         val selectedLangs = prefs.getStringSet("FILTER_LANGUAGE", emptySet()) ?: emptySet()
         val selectedTypes = prefs.getStringSet("FILTER_TVTYPE", TvType.values().map { it.name }.toSet()) ?: emptySet()
         val selectedStatus = prefs.getStringSet("FILTER_STATUS", setOf("0", "1", "2", "3")) ?: emptySet()
