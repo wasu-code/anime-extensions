@@ -41,7 +41,7 @@ object PluginLoader {
 
                         val hasOpenSettings = pluginInstance.openSettings != null
                         hasOpenSettings && HANDLER.post {
-                            Toast.makeText(context, "Plugin ${manifest.name} not supported", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Plugin ${manifest.name} may not be supported", Toast.LENGTH_SHORT).show()
                         }
 
                         // Inject our own openSettings handler if present

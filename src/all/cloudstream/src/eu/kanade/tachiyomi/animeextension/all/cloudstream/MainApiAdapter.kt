@@ -1,8 +1,12 @@
 package eu.kanade.tachiyomi.animeextension.all.cloudstream
 
+import android.widget.Toast
+import androidx.preference.EditTextPreference
+import com.lagradost.cloudstream3.AcraApplication.Companion.setKey
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.MainPageRequest
 import com.lagradost.cloudstream3.Prerelease
+import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
 import eu.kanade.tachiyomi.animesource.model.AnimesPage
 import eu.kanade.tachiyomi.animesource.model.SAnime
@@ -18,7 +22,7 @@ import okhttp3.Response
  * Adapter: Wraps a Cloudstream MainAPI provider so it can be used
  * as a Aniyomi AnimeHttpSource at runtime.
  */
-class MainApiAdapter(
+open class MainApiAdapter(
     private val api: MainAPI,
 ) : AnimeHttpSource() {
 
@@ -135,5 +139,50 @@ class MainApiAdapter(
 
     override fun getAnimeUrl(anime: SAnime): String {
         return if (anime.url.startsWith("http")) anime.url else super.getAnimeUrl(anime)
+    }
+}
+
+class ConfigurableMainApiAdapter(val api: MainAPI) : MainApiAdapter(api), ConfigurableAnimeSource {
+    override fun setupPreferenceScreen(screen: androidx.preference.PreferenceScreen) {
+        EditTextPreference(screen.context).apply {
+            key = "OVERRIDE_PREFS"
+            title = "Override Preferences"
+            summary = "If you know the key of a preference used in this source's code, you can override it here."
+            dialogMessage = """
+                Insert key=value pairs. One per line.
+            """.trimIndent()
+
+            setOnPreferenceChangeListener { pref, newValue ->
+                (newValue as String).split("\n").forEach { line ->
+                    if (line.isBlank()) return@forEach
+                    val parts = line.split("=", limit = 2)
+
+                    if (parts.size < 2) {
+                        Toast.makeText(screen.context, "Skipping invalid (missing '='): $line", Toast.LENGTH_SHORT).show()
+                        return@forEach
+                    }
+
+                    val key = parts[0].trim()
+                    val value = parts[1].trim()
+
+                    if (key.isEmpty() || value.isEmpty()) {
+                        Toast.makeText(screen.context, "Skipping invalid (empty key or value): $line", Toast.LENGTH_SHORT).show()
+                        return@forEach
+                    }
+
+                    setKey(key, value)
+                }
+
+                Toast.makeText(screen.context, "Restart app to apply", Toast.LENGTH_SHORT).show()
+                true
+            }
+        }.also(screen::addPreference)
+
+        PreferenceDivider(screen.context).apply {
+            bigText = "ℹ️ Plugin info"
+            smallText = """
+                Uses WebView? ${api.usesWebView}
+            """.trimIndent()
+        }.also(screen::addPreference)
     }
 }
