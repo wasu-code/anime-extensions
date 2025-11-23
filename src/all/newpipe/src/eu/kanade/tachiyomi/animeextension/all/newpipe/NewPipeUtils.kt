@@ -19,6 +19,7 @@ import org.schabi.newpipe.extractor.stream.Description.HTML
 import org.schabi.newpipe.extractor.stream.Description.MARKDOWN
 import org.schabi.newpipe.extractor.stream.Description.PLAIN_TEXT
 import org.schabi.newpipe.extractor.stream.StreamInfo
+import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -26,6 +27,11 @@ fun Description.plainText(): String = when (this.type) {
     PLAIN_TEXT, MARKDOWN -> this.content
     HTML -> Jsoup.parse(this.content).text()
     else -> "<invalid description type>"
+}
+
+fun String.md5(): String {
+    val bytes = MessageDigest.getInstance("MD5").digest(toByteArray())
+    return bytes.joinToString("") { "%02x".format(it) }
 }
 
 class SortFilter(entries: Array<String>) : AnimeFilter.Select<String>("Sort", entries, 0)
@@ -37,7 +43,7 @@ inline fun <reified T> Iterable<*>.findInstance() = find { it is T } as? T
 fun parseDate(dateString: String) = try {
     val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
     sdf.parse(dateString.take(19))?.time ?: 0L
-} catch (e: Exception) {
+} catch (_: Exception) {
     0L
 }
 

@@ -3,7 +3,6 @@ package eu.kanade.tachiyomi.animeextension.all.newpipe
 import android.app.Application
 import android.content.Intent
 import android.net.Uri
-import android.util.Log
 import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
 import androidx.preference.MultiSelectListPreference
@@ -296,10 +295,10 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
         val info = StreamInfo.getInfo(url)
 
         // info.streamSegments
-        Log.d("AAA", info.audioStreams.size.toString())
-        Log.d("AAA", info.subtitles.size.toString())
-        Log.d("AAA", info.videoStreams.size.toString())
-        Log.d("AAA", info.videoOnlyStreams.size.toString())
+//        Log.d("AAA", info.audioStreams.size.toString())
+//        Log.d("AAA", info.subtitles.size.toString())
+//        Log.d("AAA", info.videoStreams.size.toString())
+//        Log.d("AAA", info.videoOnlyStreams.size.toString())
 
         // Subtitles are provided in ttml format (for yt). Host app doesn't support ttml
         // val subtitleTracks = info.subtitles.map {Track(it.content, it.locale.language + it.format) }
@@ -322,7 +321,7 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
                     // TODO use cached or clear cache on app extension load
                     val ttml = URL(it.content).readText()
                     val srt = SubtitleConverter().convertTtmlToSrt(ttml)
-                    val tempFile = File(subsDir, "${it.locale.language}.srt")
+                    val tempFile = File(subsDir, "${it.content.md5()}.srt")
                     tempFile.writeText(srt)
                     val fileUri = "file://${tempFile.absolutePath}"
                     Track(
