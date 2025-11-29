@@ -49,7 +49,7 @@ object PluginCache {
 class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
     override val id: Long = 133745
     val lang: String = "all"
-    override val name: String = "! ▆▇█ CloudStream Settings █▇▆ !"
+    override val name: String = "! ⭐ CloudStream Settings ⭐ !"
     override fun toString(): String = name
 
     private val context = Injekt.get<Application>()
@@ -325,7 +325,11 @@ class FilterManager(private val prefs: SharedPreferences) {
         title = "Filter by repository"
 
         val repos = getRepos()
-        entries = repos.toTypedArray()
+        entries = repos.map {
+            URL(it)
+                .path
+                .removePrefix("/")
+        }.toTypedArray()
         entryValues = repos.toTypedArray()
 
         val storedValues = prefs.getStringSet(key, emptySet()) ?: emptySet()

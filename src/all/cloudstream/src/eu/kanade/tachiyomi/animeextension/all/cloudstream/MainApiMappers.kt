@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.animeextension.all.cloudstream
 import com.lagradost.cloudstream3.AnimeLoadResponse
 import com.lagradost.cloudstream3.Episode
 import com.lagradost.cloudstream3.HomePageResponse
+import com.lagradost.cloudstream3.LiveStreamLoadResponse
 import com.lagradost.cloudstream3.LoadResponse
 import com.lagradost.cloudstream3.MovieLoadResponse
 import com.lagradost.cloudstream3.Prerelease
@@ -10,6 +11,7 @@ import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.SearchResponseList
 import com.lagradost.cloudstream3.ShowStatus
 import com.lagradost.cloudstream3.SubtitleFile
+import com.lagradost.cloudstream3.TorrentLoadResponse
 import com.lagradost.cloudstream3.TvSeriesLoadResponse
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import eu.kanade.tachiyomi.animesource.model.AnimesPage
@@ -89,9 +91,19 @@ fun LoadResponse.toSEpisodeList(): List<SEpisode> {
             },
         )
 
-        // TODO
-//        is TorrentLoadResponse
-//        is LiveStreamLoadResponse
+        is TorrentLoadResponse -> listOf(
+            SEpisode.create().apply {
+                name = "Torrent or Magnet"
+                url = torrent ?: magnet ?: ""
+            },
+        )
+
+        is LiveStreamLoadResponse -> listOf(
+            SEpisode.create().apply {
+                name = "Live"
+                url = dataUrl
+            },
+        )
         else -> emptyList()
     }
 }
