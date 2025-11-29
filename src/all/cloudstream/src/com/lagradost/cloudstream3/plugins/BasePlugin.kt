@@ -17,6 +17,8 @@ abstract class BasePlugin {
     fun registerMainAPI(element: MainAPI) {
         Log.i(PLUGIN_TAG, "Adding ${element.name} (${element.mainUrl}) MainAPI")
         element.sourcePlugin = this.filename
+        // Only Plugin class can have openSettings (but that doesn't mean it has it implemented/used)
+        element.mayHaveSettings = this is Plugin
         // Race condition causing which would case duplicates if not for distinctBy
         synchronized(APIHolder.allProviders) {
             APIHolder.allProviders.add(element)

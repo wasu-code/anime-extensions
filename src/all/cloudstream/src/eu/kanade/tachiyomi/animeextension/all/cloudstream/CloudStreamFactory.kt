@@ -14,7 +14,10 @@ class CloudStreamFactory : AnimeSourceFactory {
     override fun createSources(): List<AnimeSource> {
         val apis = PluginLoader.loadAllPlugins(context)
         Log.d("CloudStream", "Loaded ${apis.size} sources")
-        // TODO: detect when should be configurable (if has openSettings method)
-        return (apis.map { api -> ConfigurableMainApiAdapter(api) } + CloudStreamSettings()) as List<AnimeSource>
+        return (
+            apis.map { api ->
+                if (api.mayHaveSettings == true) ConfigurableMainApiAdapter(api) else MainApiAdapter(api)
+            } + CloudStreamSettings()
+            ) as List<AnimeSource>
     }
 }

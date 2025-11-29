@@ -147,7 +147,7 @@ class ConfigurableMainApiAdapter(val api: MainAPI) : MainApiAdapter(api), Config
         EditTextPreference(screen.context).apply {
             key = "OVERRIDE_PREFS"
             title = "Override Preferences"
-            summary = "If you know the key of a preference used in this source's code, you can override it here."
+            summary = "If you know the key of a preference used in this plugin's source code, you can override it here."
             dialogMessage = """
                 Insert key=value pairs. One per line.
             """.trimIndent()
@@ -182,6 +182,11 @@ class ConfigurableMainApiAdapter(val api: MainAPI) : MainApiAdapter(api), Config
             bigText = "ℹ️ Plugin info"
             smallText = """
                 Uses WebView? ${api.usesWebView}
+                VPN status: ${api.vpnStatus}
+                Provider type: ${api.providerType}
+                Source plugin: ${api.sourcePlugin}
+                Stored credentials: ${api.storedCredentials}
+                Supported types: ${api.supportedTypes}
             """.trimIndent()
         }.also(screen::addPreference)
     }

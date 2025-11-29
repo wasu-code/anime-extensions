@@ -470,6 +470,8 @@ abstract class MainAPI {
         this.storedCredentials = data.credentials
     }
 
+    var mayHaveSettings: Boolean? = null
+
     /** Name of the plugin that will used in UI */
     open var name = "NONE"
 
