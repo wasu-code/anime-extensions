@@ -5,6 +5,7 @@ import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.net.Uri
 import android.widget.Toast
 import androidx.preference.CheckBoxPreference
 import androidx.preference.EditTextPreference
@@ -116,13 +117,6 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
         fm.makeStatusFilter(screen.context).also(screen::addPreference)
         fm.makeInstalledOnlyFilter(screen.context).also(screen::addPreference)
 
-        ButtonPreference(screen.context).apply {
-            key = "APP_RESTART"
-            title = "🔄 Restart app"
-            summary = "Restart app to (un)load (un)installed plugins"
-            onClick = { restartApp(context) }
-        }.also(screen::addPreference)
-
         PreferenceDivider(
             screen.context,
         ).apply { smallText = "Manage plugins" }.also(screen::addPreference)
@@ -167,7 +161,6 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
                         screen.addPreference(
                             createPluginSwitch(
                                 screen.context,
-                                context,
                                 plugin,
                                 scope,
                                 fm.isPluginInstalled(plugin.url),
@@ -181,7 +174,7 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
         }
     }
 
-    private fun createPluginSwitch(context: Context, appContext: Application, plugin: SitePlugin, scope: CoroutineScope, isInstalled: Boolean = false): SwitchPreferenceCompat {
+    private fun createPluginSwitch(context: Context, plugin: SitePlugin, scope: CoroutineScope, isInstalled: Boolean = false): SwitchPreferenceCompat {
         return SwitchPreferenceCompat(context).apply {
             title = "${plugin.name} (${plugin.language?.uppercase() ?: "ALL"})"
             summary = """
@@ -202,9 +195,7 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
                 scope.launch {
                     try {
                         if (enable) {
-                            PluginManager.downloadPluginToFile(plugin.url)?.let {
-                                PluginLoader.loadPlugin(appContext, it)
-                            }
+                            PluginManager.downloadPluginToFile(plugin.url)
                         } else {
                             PluginManager.deletePluginFile(plugin.url)
                         }
@@ -214,6 +205,7 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
                         }
                     } finally {
                         withContext(Dispatchers.Main) { setEnabled(true) }
+                        reloadPlugins()
                     }
                 }
                 true
@@ -221,17 +213,16 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
         }
     }
 
-    /** Restart host application to force it to reload all plugins */
-    fun restartApp(context: Application) {
-        val packageManager = context.packageManager
-        val intent = packageManager.getLaunchIntentForPackage(context.packageName)
-        val componentName = intent?.component
-        if (componentName != null) {
-            val restartIntent = Intent.makeRestartActivityTask(componentName).apply {
-                action = "eu.kanade.tachiyomi.SHOW_CATALOGUES"
-            }
-            context.startActivity(restartIntent)
-            Runtime.getRuntime().exit(0) // kill old process after scheduling restart
+    /**
+     * Reload plugins from disk so they appear in the host app.
+     */
+    fun reloadPlugins() {
+        val applicationId = context.packageName // theoretically should be BuildConfig.APPLICATION_ID of host app
+        val extensionPackageName = this::class.java.`package`?.name
+        Intent("$applicationId.ACTION_EXTENSION_REPLACED").apply {
+            data = Uri.parse("package:$extensionPackageName")
+            `package` = context.packageName
+            context.sendBroadcast(this)
         }
     }
 
