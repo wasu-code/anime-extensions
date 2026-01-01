@@ -90,6 +90,14 @@ open class MainApiAdapter(
         return details?.toSAnime() ?: SAnime.create()
     }
 
+    override fun getAnimeUrl(anime: SAnime): String {
+        return if (anime.url.startsWith("http")) {
+            anime.url
+        } else {
+            "${baseUrl.removeSuffix("/")}/${anime.url.removePrefix("/")}"
+        }
+    }
+
     override fun animeDetailsParse(response: Response): SAnime = throw UnsupportedOperationException()
 
     // === Episode List ===
@@ -106,7 +114,11 @@ open class MainApiAdapter(
     }
 
     override fun getEpisodeUrl(episode: SEpisode): String {
-        return if (episode.url.startsWith("http")) episode.url else super.getEpisodeUrl(episode)
+        return if (episode.url.startsWith("http")) {
+            episode.url
+        } else {
+            "${baseUrl.removeSuffix("/")}/${episode.url.removePrefix("/")}"
+        }
     }
 
     override fun episodeListParse(response: Response): List<SEpisode> = throw UnsupportedOperationException()
@@ -136,10 +148,6 @@ open class MainApiAdapter(
     }
 
     override fun videoListParse(response: Response): List<Video> = throw UnsupportedOperationException()
-
-    override fun getAnimeUrl(anime: SAnime): String {
-        return if (anime.url.startsWith("http")) anime.url else super.getAnimeUrl(anime)
-    }
 }
 
 class ConfigurableMainApiAdapter(val api: MainAPI) : MainApiAdapter(api), ConfigurableAnimeSource {

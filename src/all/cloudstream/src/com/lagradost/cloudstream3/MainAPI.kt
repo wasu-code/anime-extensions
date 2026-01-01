@@ -470,7 +470,9 @@ abstract class MainAPI {
         this.storedCredentials = data.credentials
     }
 
+    // WSU -->
     var mayHaveSettings: Boolean? = null
+    // WSU <--
 
     /** Name of the plugin that will used in UI */
     open var name = "NONE"
