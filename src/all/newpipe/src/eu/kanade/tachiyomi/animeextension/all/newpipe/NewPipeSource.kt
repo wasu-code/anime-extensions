@@ -375,16 +375,21 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
                 )
             }
 
-        val videos = listOf(info.videoOnlyStreams, info.videoStreams).maxBy { it.size }
-        return videos.map { stream: VideoStream ->
-            Video(
-                stream.content,
-                "${stream.quality} (${stream.resolution}) ${stream.format}",
-                stream.content,
+        fun VideoStream.toVideo(isMuted: Boolean = false): Video {
+            val suffix = if (isMuted) " 🔇" else ""
+            return Video(
+                content,
+                "$quality ($resolution) $format$suffix",
+                content,
                 subtitleTracks = subtitleTracks,
                 audioTracks = audioTracks,
             )
         }
+
+        val mutedVideos = info.videoOnlyStreams.map { it.toVideo(isMuted = true) }
+        val standardVideos = info.videoStreams.map { it.toVideo() }
+
+        return mutedVideos + standardVideos
     }
 
     override fun getFilterList(): AnimeFilterList = AnimeFilterList(
