@@ -19,7 +19,7 @@ fun InfoItem.toSAnimeRaw(): SAnime = SAnime.create().apply {
 
 fun StreamInfo.toSAnimeRaw(): SAnime = SAnime.create().apply {
     title = name
-    description = this@toSAnimeRaw.description.plainText()
+    description = this@toSAnimeRaw.description.text()
     author = uploaderName
     thumbnail_url = thumbnails.last().url
     status = SAnime.COMPLETED
@@ -28,7 +28,7 @@ fun StreamInfo.toSAnimeRaw(): SAnime = SAnime.create().apply {
 
 fun PlaylistInfo.toSAnimeRaw(): SAnime = SAnime.create().apply {
     title = name
-    description = this@toSAnimeRaw.description.plainText()
+    description = this@toSAnimeRaw.description.text()
     author = uploaderName
     thumbnail_url = thumbnails.last().url
     url = this@toSAnimeRaw.url

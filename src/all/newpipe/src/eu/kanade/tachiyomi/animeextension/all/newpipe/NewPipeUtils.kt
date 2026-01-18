@@ -23,9 +23,9 @@ import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-fun Description.plainText(): String = when (this.type) {
+fun Description.text(): String = when (this.type) {
     PLAIN_TEXT, MARKDOWN -> this.content
-    HTML -> Jsoup.parse(this.content).text()
+    HTML -> Jsoup.parse(this.content).wholeText()
     else -> "<invalid description type>"
 }
 

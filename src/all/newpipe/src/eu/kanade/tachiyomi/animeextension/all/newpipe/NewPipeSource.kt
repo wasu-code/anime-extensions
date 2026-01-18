@@ -60,6 +60,8 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
 
     init {
         NewPipeInit.init(network.client)
+        //val subsDir = File(context.cacheDir, SUBTITLES_CACHE_DIR)
+        //subsDir.deleteRecursively()
     }
 
     /** Holds pagination results */
@@ -295,10 +297,6 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
         val info = StreamInfo.getInfo(url)
 
         // info.streamSegments
-//        Log.d("AAA", info.audioStreams.size.toString())
-//        Log.d("AAA", info.subtitles.size.toString())
-//        Log.d("AAA", info.videoStreams.size.toString())
-//        Log.d("AAA", info.videoOnlyStreams.size.toString())
 
         // Subtitles are provided in ttml format (for yt). Host app doesn't support ttml
         // val subtitleTracks = info.subtitles.map {Track(it.content, it.locale.language + it.format) }
@@ -318,12 +316,13 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
             .mapNotNull {
                 if (it.format == MediaFormat.TTML) {
                     if (!allowSubsConversion) return@mapNotNull null
-                    // TODO use cached or clear cache on app extension load
+
                     val ttml = URL(it.content).readText()
                     val srt = SubtitleConverter().convertTtmlToSrt(ttml)
                     val tempFile = File(subsDir, "${it.content.md5()}.srt")
                     tempFile.writeText(srt)
                     val fileUri = "file://${tempFile.absolutePath}"
+
                     Track(
                         fileUri,
                         listOfNotNull(
@@ -462,7 +461,7 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
             summary = """
                 Only load subtitles and audio for these languages.
                 Will speed up loading.
-                Original language and undetermined languages will be included anyway.
+                Original language and undetermined languages will be always included.
             """.trimIndent()
             entries = commonLanguageCodes.toTypedArray()
             entryValues = commonLanguageCodes.toTypedArray()
