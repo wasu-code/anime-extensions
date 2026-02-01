@@ -60,8 +60,8 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
 
     init {
         NewPipeInit.init(network.client)
-        //val subsDir = File(context.cacheDir, SUBTITLES_CACHE_DIR)
-        //subsDir.deleteRecursively()
+        // val subsDir = File(context.cacheDir, SUBTITLES_CACHE_DIR)
+        // subsDir.deleteRecursively()
     }
 
     /** Holds pagination results */

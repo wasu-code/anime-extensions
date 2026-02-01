@@ -8,5 +8,6 @@ ext {
 apply from: "$rootDir/common.gradle"
 
 dependencies {
-    implementation("com.github.teamnewpipe:NewPipeExtractor:v0.24.8")
+    //noinspection UseTomlInstead
+    implementation("com.github.teamnewpipe:NewPipeExtractor:v0.25.1")
 }
