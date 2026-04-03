@@ -2,7 +2,6 @@ package eu.kanade.tachiyomi.animeextension.all.cloudstream
 
 import android.content.Context
 import androidx.preference.EditTextPreference
-import androidx.preference.SwitchPreferenceCompat
 
 /**
  * A preference that shows an OK/Cancel alert dialog.
@@ -37,26 +36,6 @@ class ConfirmActionPreference(
 
     var onConfirm: () -> Unit = {}
     var showDivider: Boolean = false
-}
-
-/**
- * @param onClick Called when user clicks the button
- * @param key
- * @param title
- * @param summary
- */
-class ButtonPreference(
-    context: Context,
-) : SwitchPreferenceCompat(context) {
-    init {
-        setDefaultValue(false)
-        setOnPreferenceChangeListener { _, _ ->
-            onClick()
-            false // prevent from switching to toggled state
-        }
-    }
-
-    var onClick: () -> Unit = {}
 }
 
 class PreferenceDivider(

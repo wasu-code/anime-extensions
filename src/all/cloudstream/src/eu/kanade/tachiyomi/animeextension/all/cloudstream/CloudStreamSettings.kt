@@ -10,6 +10,7 @@ import android.widget.Toast
 import androidx.preference.CheckBoxPreference
 import androidx.preference.EditTextPreference
 import androidx.preference.MultiSelectListPreference
+import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceScreen
 import androidx.preference.SwitchPreferenceCompat
@@ -75,7 +76,7 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
             ).apply {
                 bigText = "⚠️"
                 smallText = """
-                    Your host app ($hostAppName) uses an outdated version of the gson library (older than v2.11.0).
+                    Your host app ($hostAppName) uses an outdated version of the GSON library (older than v2.11.0).
                     Some extensions may not work properly (and throw NoSuchMethodError for setStrictness).
                 """.trimIndent()
             }.also(screen::addPreference)
@@ -94,22 +95,28 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
             }
         }.also(screen::addPreference)
 
-        ButtonPreference(screen.context).apply {
-            key = "BTN_ADD_ALL"
-            title = "Add all well known repos"
-            summary = "Add all well known plugin repositories."
-            onClick = {
-                scope.launch {
-                    val userRepos = fm.getRepos()
-                    val wellKnownRepos = RepositoryManager.getWellKnownRepos()
-                    val allRepos = (userRepos + wellKnownRepos).toSet()
-                    preferences.edit().putString("REPOS", allRepos.joinToString("\n")).commit()
-                    withContext(Dispatchers.Main) {
-                        fm.applyFilters(screen.context)
+        Preference::class.java
+            .getConstructor(Context::class.java)
+            .newInstance(screen.context)
+            .apply {
+                key = "BTN_ADD_ALL"
+                title = "Add all well known repos"
+                summary = "Add all well known plugin repositories."
+                setOnPreferenceClickListener {
+                    scope.launch {
+                        val userRepos = fm.getRepos()
+                        val wellKnownRepos = RepositoryManager.getWellKnownRepos()
+                        val allRepos = (userRepos + wellKnownRepos).toSet()
+                        preferences.edit().putString("REPOS", allRepos.joinToString("\n")).commit()
+                        withContext(Dispatchers.Main) {
+                            fm.applyFilters(screen.context)
+                            Toast.makeText(screen.context, "Don't forget to select newly added repos in filters!", Toast.LENGTH_LONG).show()
+                        }
                     }
+                    true
                 }
             }
-        }.also(screen::addPreference)
+            .also(screen::addPreference)
 
         val filters = PreferenceCategory(screen.context).apply {
             title = "Filters"
