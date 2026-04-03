@@ -10,7 +10,10 @@ ext {
 apply from: "$rootDir/common.gradle"
 
 dependencies {
-    // CloudStream library dependencies
+    //noinspection UseTomlInstead
+    compileOnly("androidx.preference:preference-ktx:1.2.1")
+
+    // ============================= CloudStream library dependencies =============================
     // https://github.com/recloudstream/cloudstream/blob/master/library/build.gradle.kts#L35-L43
 
     //noinspection UseTomlInstead

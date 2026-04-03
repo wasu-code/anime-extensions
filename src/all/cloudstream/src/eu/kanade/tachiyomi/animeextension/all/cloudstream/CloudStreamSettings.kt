@@ -10,6 +10,7 @@ import android.widget.Toast
 import androidx.preference.CheckBoxPreference
 import androidx.preference.EditTextPreference
 import androidx.preference.MultiSelectListPreference
+import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceScreen
 import androidx.preference.SwitchPreferenceCompat
 import com.lagradost.cloudstream3.APIHolder
@@ -67,13 +68,14 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
         val clazz = com.google.gson.stream.JsonReader::class.java
         val methodName = "setStrictness" // available only in gson v2.11+
         val hasMethod = clazz.methods.any { it.name == methodName }
+        val hostAppName = context.applicationInfo.loadLabel(context.packageManager)
         if (!hasMethod) {
             PreferenceDivider(
                 screen.context,
             ).apply {
                 bigText = "⚠️"
                 smallText = """
-                    Your host app (${context.applicationInfo.loadLabel(context.packageManager)}) uses an outdated version of the gson library (older than v2.11.0).
+                    Your host app ($hostAppName) uses an outdated version of the gson library (older than v2.11.0).
                     Some extensions may not work properly (and throw NoSuchMethodError for setStrictness).
                 """.trimIndent()
             }.also(screen::addPreference)
@@ -109,17 +111,21 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
             }
         }.also(screen::addPreference)
 
-        PreferenceDivider(context = screen.context).apply { smallText = "Filters" }.also(screen::addPreference)
+        val filters = PreferenceCategory(screen.context).apply {
+            title = "Filters"
+            summary = "Set filters to limit plugins shown"
+        }.also(screen::addPreference)
 
-        fm.makeRepoFilter(screen.context).also(screen::addPreference)
-        fm.makeLangFilter(screen.context).also(screen::addPreference)
-        fm.makeTypeFilter(screen.context).also(screen::addPreference)
-        fm.makeStatusFilter(screen.context).also(screen::addPreference)
-        fm.makeInstalledOnlyFilter(screen.context).also(screen::addPreference)
+        fm.makeRepoFilter(screen.context).also(filters::addPreference)
+        fm.makeLangFilter(screen.context).also(filters::addPreference)
+        fm.makeTypeFilter(screen.context).also(filters::addPreference)
+        fm.makeStatusFilter(screen.context).also(filters::addPreference)
+        fm.makeInstalledOnlyFilter(screen.context).also(filters::addPreference)
 
-        PreferenceDivider(
-            screen.context,
-        ).apply { smallText = "Manage plugins" }.also(screen::addPreference)
+        val extensionList = PreferenceCategory(screen.context).apply {
+            title = "Manage plugins"
+            summary = "Install or uninstall plugins"
+        }.also(screen::addPreference)
 
         ConfirmActionPreference(screen.context).apply {
             key = "PLUGINS_PURGE"
@@ -139,7 +145,7 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
                     }
                 }
             }
-        }.also(screen::addPreference)
+        }.also(extensionList::addPreference)
 
         loadPluginList(screen, fm, scope)
     }
@@ -313,7 +319,7 @@ class FilterManager(private val prefs: SharedPreferences) {
     // Functions for creating preferences
     fun makeRepoFilter(context: Context) = MultiSelectListPreference(context).apply {
         key = "FILTER_REPO"
-        title = "Filter by repository"
+        title = "Repository"
 
         val repos = getRepos()
         entries = repos.map {
@@ -342,7 +348,7 @@ class FilterManager(private val prefs: SharedPreferences) {
     fun makeLangFilter(context: Context): MultiSelectListPreference {
         val pref = MultiSelectListPreference(context)
         pref.key = "FILTER_LANGUAGE"
-        pref.title = "Filter by language"
+        pref.title = "Language"
         pref.summary = "Loading..."
         pref.setEnabled(false)
         pref.setDefaultValue(emptySet<String>())
@@ -377,7 +383,7 @@ class FilterManager(private val prefs: SharedPreferences) {
 
     fun makeTypeFilter(context: Context) = MultiSelectListPreference(context).apply {
         key = "FILTER_TVTYPE"
-        title = "Filter by type"
+        title = "Type"
         entries = TvType.values().map { it.name }.toTypedArray()
         entryValues = entries
         setDefaultValue(entries.toSet())
@@ -390,7 +396,7 @@ class FilterManager(private val prefs: SharedPreferences) {
 
     fun makeStatusFilter(context: Context) = MultiSelectListPreference(context).apply {
         key = "FILTER_STATUS"
-        title = "Filter by status"
+        title = "Status"
         entries = arrayOf("Down", "Ok", "Slow", "Beta")
         entryValues = arrayOf("0", "1", "2", "3")
         setDefaultValue(setOf("0", "1", "2", "3"))
@@ -403,7 +409,7 @@ class FilterManager(private val prefs: SharedPreferences) {
 
     fun makeInstalledOnlyFilter(context: Context) = CheckBoxPreference(context).apply {
         key = "FILTER_INSTALLED_ONLY"
-        title = "Show only installed plugins"
+        title = "Only installed"
         setDefaultValue(false)
         setOnPreferenceChangeListener { _, _ ->
             applyFilters(context)
