@@ -1,7 +1,9 @@
 package eu.kanade.tachiyomi.animeextension.all.cloudstream
 
+import android.content.Context
 import android.widget.Toast
 import androidx.preference.EditTextPreference
+import androidx.preference.Preference
 import com.lagradost.cloudstream3.AcraApplication.Companion.setKey
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.MainPageRequest
@@ -25,7 +27,6 @@ import okhttp3.Response
 open class MainApiAdapter(
     private val api: MainAPI,
 ) : AnimeHttpSource() {
-
     override val name: String = api.name
     override val baseUrl: String = api.mainUrl
     override val lang: String = when (api.lang) {
@@ -197,5 +198,33 @@ class ConfigurableMainApiAdapter(val api: MainAPI) : MainApiAdapter(api), Config
                 Supported types: ${api.supportedTypes}
             """.trimIndent()
         }.also(screen::addPreference)
+
+        Preference::class.java
+            .getConstructor(Context::class.java)
+            .newInstance(screen.context)
+            .apply {
+                key = "DUMMY53829"
+                title = "Open Plugin Settings"
+
+                setOnPreferenceClickListener {
+                    try {
+//                        fun Context.getActivity(): android.app.Activity? {
+//                            var context = this
+//                            while (context is android.content.ContextWrapper) {
+//                                if (context is android.app.Activity) {
+//                                    return context
+//                                }
+//                                context = context.baseContext
+//                            }
+//                            return null
+//                        }
+                        api.openSettings?.invoke(screen.context)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                    true
+                }
+            }
+            .also(screen::addPreference)
     }
 }

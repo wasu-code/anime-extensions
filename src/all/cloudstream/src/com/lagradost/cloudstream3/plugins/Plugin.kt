@@ -43,6 +43,5 @@ abstract class Plugin : BasePlugin() {
      * This will add a button in the settings allowing you to add custom settings
      */
     var openSettings: ((context: Context) -> Unit)? = null
-    // TODO handle settings
     // example plugin using settings: https://github.com/doGior/doGiorsHadEnough/blob/master/IPTV/src/main/kotlin/it/dogior/hadEnough/IPTVSettingsFragment.kt
 }

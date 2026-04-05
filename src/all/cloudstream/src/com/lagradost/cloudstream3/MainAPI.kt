@@ -6,6 +6,7 @@
 
 package com.lagradost.cloudstream3
 
+import android.content.Context
 import com.fasterxml.jackson.annotation.JsonAutoDetect
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.DeserializationFeature
@@ -472,6 +473,7 @@ abstract class MainAPI {
 
     // WSU -->
     var mayHaveSettings: Boolean? = null
+    var openSettings: ((context: Context) -> Unit)? = null
     // WSU <--
 
     /** Name of the plugin that will used in UI */

@@ -20,7 +20,20 @@ abstract class BasePlugin {
 
         // WSU -->
         // Only Plugin class can have openSettings (but that doesn't mean it has it implemented/used)
-        element.mayHaveSettings = this is Plugin
+        if (this is Plugin) {
+            element.mayHaveSettings = true
+            // Delegate dynamically to this.openSettings at invocation time
+            // because openSettings may be added after load() is invoked
+            element.openSettings = { ctx ->
+                this.openSettings?.invoke(ctx)
+                    // or inform the user that plugin doesn't have settings
+                    ?: android.app.AlertDialog.Builder(ctx)
+                        .setTitle("No settings")
+                        .setMessage("This plugin doesn't have settings")
+                        .setPositiveButton("OK", null)
+                        .show()
+            }
+        }
         // WSU <--
 
         // Race condition causing which would case duplicates if not for distinctBy
