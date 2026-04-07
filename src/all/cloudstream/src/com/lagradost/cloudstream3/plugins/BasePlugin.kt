@@ -24,15 +24,7 @@ abstract class BasePlugin {
             element.mayHaveSettings = true
             // Delegate dynamically to this.openSettings at invocation time
             // because openSettings may be added after load() is invoked
-            element.openSettings = { ctx ->
-                this.openSettings?.invoke(ctx)
-                    // or inform the user that plugin doesn't have settings
-                    ?: android.app.AlertDialog.Builder(ctx)
-                        .setTitle("No settings")
-                        .setMessage("This plugin doesn't have settings")
-                        .setPositiveButton("OK", null)
-                        .show()
-            }
+            element.openSettings = { ctx -> this.openSettings?.invoke(ctx) }
         }
         // WSU <--
 

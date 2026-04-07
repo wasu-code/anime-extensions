@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.animeextension.all.cloudstream
 
 import android.content.Context
+import android.util.Log
 import android.widget.Toast
 import androidx.preference.EditTextPreference
 import androidx.preference.Preference
@@ -208,19 +209,9 @@ class ConfigurableMainApiAdapter(val api: MainAPI) : MainApiAdapter(api), Config
 
                 setOnPreferenceClickListener {
                     try {
-//                        fun Context.getActivity(): android.app.Activity? {
-//                            var context = this
-//                            while (context is android.content.ContextWrapper) {
-//                                if (context is android.app.Activity) {
-//                                    return context
-//                                }
-//                                context = context.baseContext
-//                            }
-//                            return null
-//                        }
                         api.openSettings?.invoke(screen.context)
                     } catch (e: Exception) {
-                        e.printStackTrace()
+                        Log.e("CloudStream", "Failed to open settings for ${api.name}", e)
                     }
                     true
                 }

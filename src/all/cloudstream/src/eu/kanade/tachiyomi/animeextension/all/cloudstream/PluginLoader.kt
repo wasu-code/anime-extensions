@@ -38,14 +38,15 @@ object PluginLoader {
                     if (pluginInstance is Plugin) {
                         Log.d("CloudStream", "Class 'Plugin' not yet fully supported: ${manifest.name} ($file)")
 
-                        pluginInstance.load(context).also {
-                            val hasOpenSettings = pluginInstance.openSettings != null
-                            // If after load() plugin has openSettings inform user it may not fully work
-                            hasOpenSettings && HANDLER.post {
-                                // Toast.makeText(context, "Plugin ${manifest.name} may not be supported", Toast.LENGTH_SHORT).show()
-                                Log.d("CloudStream", "${manifest.name} has openSettings after loading")
-                            }
+                        val loggingContext = LoggingContext(context)
+                        pluginInstance.openSettings = { ctx ->
+                            android.app.AlertDialog.Builder(ctx)
+                                .setTitle("Settings accessed during load")
+                                .setMessage("${loggingContext.accessedKeys}")
+                                .setPositiveButton("OK", null)
+                                .show()
                         }
+                        pluginInstance.load(loggingContext)
                     } else {
                         pluginInstance.load()
                     }
