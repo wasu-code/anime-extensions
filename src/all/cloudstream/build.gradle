@@ -11,7 +11,6 @@ apply from: "$rootDir/common.gradle"
 
 dependencies {
     //noinspection UseTomlInstead
-//    implementation("androidx.appcompat:appcompat:1.7.1") // to support AppCompatActivity
     compileOnly("androidx.preference:preference-ktx:1.2.1")
 
     // ============================= CloudStream library dependencies =============================
@@ -35,10 +34,14 @@ dependencies {
 
     //noinspection UseTomlInstead
     implementation("me.xdrop:fuzzywuzzy:1.4.0")
+
+    // ============================= CloudStream plugins dependencies =============================
+    //noinspection UseTomlInstead
+//    implementation("androidx.appcompat:appcompat:1.7.1")
 }
 
 android {
-//    compileSdkVersion 36 // to support androidx.appcompat:appcompat:1.7.1
+//    compileSdkVersion 34 // to support androidx.appcompat:appcompat:1.7.1
     kotlinOptions {
         freeCompilerArgs += "-Xmulti-platform"
     }

@@ -42,7 +42,7 @@ object PluginLoader {
                             val hasOpenSettings = pluginInstance.openSettings != null
                             // If after load() plugin has openSettings inform user it may not fully work
                             hasOpenSettings && HANDLER.post {
-//                                Toast.makeText(context, "Plugin ${manifest.name} may not be supported", Toast.LENGTH_SHORT).show()
+                                // Toast.makeText(context, "Plugin ${manifest.name} may not be supported", Toast.LENGTH_SHORT).show()
                                 Log.d("CloudStream", "${manifest.name} has openSettings after loading")
                             }
                         }
@@ -54,10 +54,9 @@ object PluginLoader {
             }
         } catch (e: Throwable) {
             // Skip invalid plugins
-            Log.d("CloudStream", "Failed to load $file caused by ${e::class.simpleName}")
-            e.printStackTrace()
+            Log.d("CloudStream", "Failed to load $file caused by ${e::class.simpleName}", e)
+            return false
         }
-        return false
     }
 
     fun loadAllPlugins(context: Application): List<MainAPI> {

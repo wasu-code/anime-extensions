@@ -10,7 +10,7 @@ import com.lagradost.cloudstream3.utils.DataStore.setKey
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
-class AcraApplication : Application() {
+open class AcraApplication : Application() {
 
     companion object {
         var context: Context? = null
