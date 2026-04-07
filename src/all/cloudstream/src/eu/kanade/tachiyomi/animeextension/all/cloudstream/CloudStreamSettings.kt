@@ -55,7 +55,7 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
     override val name: String = "! ⭐ CloudStream Settings ⭐ !"
     override fun toString(): String = name
 
-    private val context = Injekt.get<Application>()
+    private val hostContext = Injekt.get<Application>()
     private val preferences: SharedPreferences by lazy {
         Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
     }
@@ -69,7 +69,7 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
         val clazz = com.google.gson.stream.JsonReader::class.java
         val methodName = "setStrictness" // available only in gson v2.11+
         val hasMethod = clazz.methods.any { it.name == methodName }
-        val hostAppName = context.applicationInfo.loadLabel(context.packageManager)
+        val hostAppName = hostContext.applicationInfo.loadLabel(hostContext.packageManager)
         if (!hasMethod) {
             PreferenceDivider(
                 screen.context,
@@ -205,19 +205,28 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
             setOnPreferenceChangeListener { _, newValue ->
                 val enable = newValue as Boolean
                 setEnabled(false)
+                var success = false
                 scope.launch {
                     try {
                         if (enable) {
-                            PluginManager.downloadPluginToFile(plugin.url)
+                            val file = PluginManager.downloadPluginToFile(plugin.url)
+                            // test drive
+                            success = file?.let {
+                                PluginLoader.loadPlugin(hostContext, it)
+                            } ?: false
                         } else {
-                            PluginManager.deletePluginFile(plugin.url)
+                            success = PluginManager.deletePluginFile(plugin.url)
                         }
                     } catch (_: Exception) {
                         withContext(Dispatchers.Main) {
                             Toast.makeText(context, "Plugin load failed", Toast.LENGTH_SHORT).show()
+                            success = false
                         }
                     } finally {
-                        withContext(Dispatchers.Main) { setEnabled(true) }
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "Action ${if (success) "succeeded" else "failed"}", Toast.LENGTH_SHORT).show()
+                            setEnabled(true)
+                        }
                         reloadPlugins()
                     }
                 }
@@ -230,12 +239,12 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
      * Reload plugins from disk so they appear in the host app.
      */
     fun reloadPlugins() {
-        val applicationId = context.packageName // theoretically should be BuildConfig.APPLICATION_ID of host app
+        val applicationId = hostContext.packageName // theoretically should be BuildConfig.APPLICATION_ID of host app
         val extensionPackageName = this::class.java.`package`?.name
         Intent("$applicationId.ACTION_EXTENSION_REPLACED").apply {
             data = Uri.parse("package:$extensionPackageName")
-            `package` = context.packageName
-            context.sendBroadcast(this)
+            `package` = hostContext.packageName
+            hostContext.sendBroadcast(this)
         }
     }
 
