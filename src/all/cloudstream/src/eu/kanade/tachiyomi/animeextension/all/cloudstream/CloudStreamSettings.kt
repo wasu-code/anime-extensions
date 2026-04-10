@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.animeextension.all.cloudstream
 
 import android.annotation.SuppressLint
+import android.app.AlertDialog
 import android.app.Application
 import android.content.Context
 import android.content.Intent
@@ -13,7 +14,6 @@ import androidx.preference.MultiSelectListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceScreen
-import androidx.preference.SwitchPreferenceCompat
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.TvType
 import eu.kanade.tachiyomi.animesource.AnimeSource
@@ -71,15 +71,17 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
         val hasMethod = clazz.methods.any { it.name == methodName }
         val hostAppName = hostContext.applicationInfo.loadLabel(hostContext.packageManager)
         if (!hasMethod) {
-            PreferenceDivider(
-                screen.context,
-            ).apply {
-                bigText = "⚠️"
-                smallText = """
-                    Your host app ($hostAppName) uses an outdated version of the GSON library (older than v2.11.0).
-                    Some extensions may not work properly (and throw NoSuchMethodError for setStrictness).
-                """.trimIndent()
-            }.also(screen::addPreference)
+            Preference::class.java
+                .getConstructor(Context::class.java)
+                .newInstance(screen.context)
+                .apply {
+                    summary = """
+                        Your host app ($hostAppName) uses an outdated version of the GSON library (older than v2.11.0).
+                        Some extensions may not work properly (and throw NoSuchMethodError for setStrictness).
+                    """.trimIndent()
+                    setIconReflect(android.R.drawable.ic_dialog_alert)
+                }
+                .also(screen::addPreference)
         }
 
         EditTextPreference(screen.context).apply {
@@ -116,6 +118,7 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
                     true
                 }
             }
+            .setIconReflect(android.R.drawable.ic_menu_add)
             .also(screen::addPreference)
 
         val filters = PreferenceCategory(screen.context).apply {
@@ -157,6 +160,33 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
         loadPluginList(screen, fm, scope)
     }
 
+    fun Preference.setIconReflect(resId: Int): Preference {
+        try {
+            // get the context from Preference via reflection
+            val contextField = this.javaClass.getDeclaredField("mContext")
+            contextField.isAccessible = true
+            val context = contextField.get(this)
+
+            val drawable = context.javaClass
+                .getMethod("getDrawable", Int::class.javaPrimitiveType)
+                .invoke(context, resId)
+
+            val drawableClass = Class.forName("android.graphics.drawable.Drawable")
+
+            this.javaClass
+                .getMethod("setIcon", drawableClass)
+                .invoke(this, drawable)
+
+            // always reserve space for icon
+            this.javaClass
+                .getMethod("setIconSpaceReserved", Boolean::class.javaPrimitiveType)
+                .invoke(this, true)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return this
+    }
+
     private fun loadPluginList(screen: PreferenceScreen, fm: FilterManager, scope: CoroutineScope) {
         scope.launch {
             val loadingPref = PreferenceDivider(
@@ -172,7 +202,7 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
                     loadingPref.smallText = "Showing ${plugins.size} plugins"
                     plugins.forEach { plugin ->
                         screen.addPreference(
-                            createPluginSwitch(
+                            createPluginItem(
                                 screen.context,
                                 plugin,
                                 scope,
@@ -187,52 +217,81 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
         }
     }
 
-    private fun createPluginSwitch(context: Context, plugin: SitePlugin, scope: CoroutineScope, isInstalled: Boolean = false): SwitchPreferenceCompat {
-        return SwitchPreferenceCompat(context).apply {
-            title = "${plugin.name} (${plugin.language?.uppercase() ?: "ALL"})"
-            summary = """
-            ${plugin.description}
-            ${plugin.tvTypes?.joinToString(" // ")}
-            from: ${URL(plugin.repositoryUrl).path.trimStart('/')}
-            version: ${plugin.version}
-            status: ${arrayOf("Down", "Ok", "Slow", "Beta")[plugin.status]}
-            """.trimIndent()
+    private fun createPluginItem(context: Context, plugin: SitePlugin, scope: CoroutineScope, isInstalled: Boolean = false): Preference {
+        return Preference::class.java
+            .getConstructor(Context::class.java)
+            .newInstance(context).apply {
+                title = "${plugin.name} (${plugin.language?.uppercase() ?: "ALL"})"
+                summary = """
+                    ${plugin.description}
+                    ${plugin.tvTypes?.joinToString(" // ")}
+                    from: ${URL(plugin.repositoryUrl).path.trimStart('/')}
+                    version: ${plugin.version}
+                    status: ${arrayOf("Down", "Ok", "Slow", "Beta")[plugin.status]}
+                """.trimIndent()
 
-            val installed = isInstalled
-            setDefaultValue(installed)
-            setEnabled(installed || plugin.status > 0)
+                val installed = isInstalled
+                setDefaultValue(installed)
+                setEnabled(installed || plugin.status > 0)
+                setIconReflect(
+                    when {
+//                    updateAvailable -> android.R.drawable.ic_notification_overlay
+                        installed && plugin.status == 0 -> android.R.drawable.ic_notification_clear_all
+                        installed && plugin.status == 1 -> android.R.drawable.star_big_on
+                        installed -> android.R.drawable.star_big_off
+                        plugin.status == 0 -> android.R.drawable.ic_notification_clear_all
+                        else -> android.R.drawable.stat_sys_download
+                    },
+                )
 
-            setOnPreferenceChangeListener { _, newValue ->
-                val enable = newValue as Boolean
-                setEnabled(false)
-                var success = false
-                scope.launch {
-                    try {
-                        if (enable) {
-                            val file = PluginManager.downloadPluginToFile(plugin.url)
-                            // test drive
-                            success = file?.let {
-                                PluginLoader.loadPlugin(hostContext, it)
-                            } ?: false
-                        } else {
-                            success = PluginManager.deletePluginFile(plugin.url)
+                setOnPreferenceClickListener {
+                    val items = arrayOf(
+                        "Install/Update",
+                        "Uninstall",
+                    )
+
+                    AlertDialog.Builder(context)
+                        .setTitle("Manage Plugin")
+                        .setIcon(android.R.drawable.ic_dialog_dialer)
+                        .setItems(items) { _, which ->
+                            setEnabled(false)
+                            var success: Boolean
+                            scope.launch {
+                                try {
+                                    when (which) {
+                                        0 -> {
+                                            val file = PluginManager.downloadPluginToFile(plugin.url)
+                                            // test drive
+                                            success = file?.let {
+                                                PluginLoader.loadPlugin(hostContext, it)
+                                            } ?: false
+                                            if (success) {
+                                                setIconReflect(android.R.drawable.star_big_on)
+                                            } else {
+                                                Toast.makeText(context, "Plugin load failed", Toast.LENGTH_SHORT).show()
+                                                setIconReflect(android.R.drawable.ic_popup_disk_full)
+                                            }
+                                        }
+                                        1 -> {
+                                            success = PluginManager.deletePluginFile(plugin.url)
+                                            if (success) {
+                                                setIconReflect(android.R.drawable.stat_sys_download)
+                                            }
+                                        }
+                                    }
+                                } catch (_: Exception) {
+                                    setIconReflect(android.R.drawable.ic_popup_disk_full)
+                                } finally {
+                                    setEnabled(true)
+                                    reloadPlugins()
+                                }
+                            }
                         }
-                    } catch (_: Exception) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Plugin load failed", Toast.LENGTH_SHORT).show()
-                            success = false
-                        }
-                    } finally {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Action ${if (success) "succeeded" else "failed"}", Toast.LENGTH_SHORT).show()
-                            setEnabled(true)
-                        }
-                        reloadPlugins()
-                    }
+                        .show()
+
+                    true
                 }
-                true
             }
-        }
     }
 
     /**
