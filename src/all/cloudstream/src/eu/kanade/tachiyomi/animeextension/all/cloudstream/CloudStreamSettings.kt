@@ -137,25 +137,57 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
             summary = "Install or uninstall plugins"
         }.also(screen::addPreference)
 
-        ConfirmActionPreference(screen.context).apply {
-            key = "PLUGINS_PURGE"
-            title = "Purge all plugin files"
-            dialogMessage = "This will remove all installed CloudStream plugins"
-            onConfirm = { screen.context.getActivity()?.recreate() }
-            summary = "${PluginManager.getPluginCount()} plugin(s) installed, ${APIHolder.allProviders.size} provider(s) loaded"
-            onConfirm = {
-                scope.launch {
-                    setEnabled(false)
-                    val success = PluginManager.deleteAllPluginFiles()
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(screen.context, "All plugin files deleted? $success", Toast.LENGTH_SHORT).show()
-                        setEnabled(true)
-                        preferences.edit().putStringSet("EXTENSIONS", emptySet()).commit()
-                        fm.applyFilters(screen.context)
-                    }
+//        ConfirmActionPreference(screen.context).apply {
+//            key = "PLUGINS_PURGE"
+//            title = "Purge all plugin files"
+//            dialogMessage = "This will remove all installed CloudStream plugins"
+//            onConfirm = { screen.context.getActivity()?.recreate() }
+//            summary = "${PluginManager.getPluginCount()} plugin(s) installed, ${APIHolder.allProviders.size} provider(s) loaded"
+//            onConfirm = {
+//                scope.launch {
+//                    setEnabled(false)
+//                    val success = PluginManager.deleteAllPluginFiles()
+//                    withContext(Dispatchers.Main) {
+//                        Toast.makeText(screen.context, "All plugin files deleted? $success", Toast.LENGTH_SHORT).show()
+//                        setEnabled(true)
+//                        preferences.edit().putStringSet("EXTENSIONS", emptySet()).commit()
+//                        fm.applyFilters(screen.context)
+//                    }
+//                }
+//            }
+//        }.also(extensionList::addPreference)
+
+        Preference::class.java
+            .getConstructor(Context::class.java)
+            .newInstance(screen.context)
+            .apply {
+                title = "Purge all plugin files"
+                summary = "${PluginManager.getPluginCount()} plugin(s) installed, ${APIHolder.allProviders.size} provider(s) loaded"
+                setIconReflect(android.R.drawable.ic_menu_delete)
+
+                setOnPreferenceClickListener {
+                    AlertDialog.Builder(screen.context)
+                        .setTitle("Purge plugins?")
+                        .setMessage("This will remove all installed CloudStream plugins")
+                        .setIcon(android.R.drawable.ic_dialog_alert)
+                        .setPositiveButton("Purge") { dialog, which ->
+                            scope.launch {
+                                setEnabled(false)
+                                val success = PluginManager.deleteAllPluginFiles()
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(screen.context, "All plugin files deleted? $success", Toast.LENGTH_SHORT).show()
+                                    setEnabled(true)
+                                    preferences.edit().putStringSet("EXTENSIONS", emptySet()).commit()
+                                    fm.applyFilters(screen.context)
+                                }
+                            }
+                        }
+                        .setNegativeButton("Cancel", null)
+                        .show()
+                    true
                 }
             }
-        }.also(extensionList::addPreference)
+            .also(screen::addPreference)
 
         loadPluginList(screen, fm, scope)
     }
@@ -189,17 +221,22 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
 
     private fun loadPluginList(screen: PreferenceScreen, fm: FilterManager, scope: CoroutineScope) {
         scope.launch {
-            val loadingPref = PreferenceDivider(
-                context = screen.context,
-            ).apply {
-                smallText = "Loading plugins..."
-            }.also(screen::addPreference)
+            val loadingPref = Preference::class.java
+                .getConstructor(Context::class.java)
+                .newInstance(screen.context)
+                .apply {
+                    summary = "Loading plugins..."
+                    setIconReflect(android.R.drawable.button_onoff_indicator_off)
+                }.also(screen::addPreference)
 
             val plugins = fm.getFilteredPlugins()
             withContext(Dispatchers.Main) {
                 // Add divider and plugin switches
                 if (plugins.isNotEmpty()) {
-                    loadingPref.smallText = "Showing ${plugins.size} plugins"
+                    loadingPref.apply {
+                        summary = "Showing ${plugins.size} plugins"
+                        setIconReflect(android.R.drawable.button_onoff_indicator_on)
+                    }
                     plugins.forEach { plugin ->
                         screen.addPreference(
                             createPluginItem(
@@ -211,7 +248,7 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
                         )
                     }
                 } else {
-                    loadingPref.smallText = "No plugins match current filters"
+                    loadingPref.summary = "No plugins match current filters"
                 }
             }
         }

@@ -188,17 +188,20 @@ class ConfigurableMainApiAdapter(val api: MainAPI) : MainApiAdapter(api), Config
             }
         }.also(screen::addPreference)
 
-        PreferenceDivider(screen.context).apply {
-            bigText = "ℹ️ Plugin info"
-            smallText = """
+        Preference::class.java
+            .getConstructor(Context::class.java)
+            .newInstance(screen.context)
+            .apply {
+                title = "ℹ️ Plugin info"
+                summary = """
                 Uses WebView? ${api.usesWebView}
                 VPN status: ${api.vpnStatus}
                 Provider type: ${api.providerType}
                 Source plugin: ${api.sourcePlugin}
                 Stored credentials: ${api.storedCredentials}
                 Supported types: ${api.supportedTypes}
-            """.trimIndent()
-        }.also(screen::addPreference)
+                """.trimIndent()
+            }.also(screen::addPreference)
 
         Preference::class.java
             .getConstructor(Context::class.java)
