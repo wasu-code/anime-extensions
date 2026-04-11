@@ -134,30 +134,10 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
         fm.makeStatusFilter(screen.context).also(filters::addPreference)
         fm.makeInstalledOnlyFilter(screen.context).also(filters::addPreference)
 
-        val extensionList = PreferenceCategory(screen.context).apply {
+        PreferenceCategory(screen.context).apply {
             title = "Manage plugins"
             summary = "Install or uninstall plugins"
         }.also(screen::addPreference)
-
-//        ConfirmActionPreference(screen.context).apply {
-//            key = "PLUGINS_PURGE"
-//            title = "Purge all plugin files"
-//            dialogMessage = "This will remove all installed CloudStream plugins"
-//            onConfirm = { screen.context.getActivity()?.recreate() }
-//            summary = "${PluginManager.getPluginCount()} plugin(s) installed, ${APIHolder.allProviders.size} provider(s) loaded"
-//            onConfirm = {
-//                scope.launch {
-//                    setEnabled(false)
-//                    val success = PluginManager.deleteAllPluginFiles()
-//                    withContext(Dispatchers.Main) {
-//                        Toast.makeText(screen.context, "All plugin files deleted? $success", Toast.LENGTH_SHORT).show()
-//                        setEnabled(true)
-//                        preferences.edit().putStringSet("EXTENSIONS", emptySet()).commit()
-//                        fm.applyFilters(screen.context)
-//                    }
-//                }
-//            }
-//        }.also(extensionList::addPreference)
 
         Preference::class.java
             .getConstructor(Context::class.java)
@@ -294,38 +274,43 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
                         .setIcon(android.R.drawable.ic_dialog_dialer)
                         .setItems(items) { _, which ->
                             setEnabled(false)
-                            var success: Boolean
-                            scope.launch {
-                                try {
-                                    when (which) {
-                                        0 -> {
-                                            val file = PluginManager.downloadPluginToFile(plugin.url)
-                                            // test drive
-                                            success = file?.let {
-                                                PluginLoader.loadPlugin(hostContext, it)
-                                            } ?: false
-                                            if (success) {
-                                                setIconReflect(android.R.drawable.star_big_on)
-                                            } else {
-                                                withContext(Dispatchers.Main) {
-                                                    Toast.makeText(context, "Plugin load failed", Toast.LENGTH_SHORT).show()
-                                                }
-                                                setIconReflect(android.R.drawable.ic_popup_disk_full)
+
+                            scope.launch(Dispatchers.Main) {
+                                val success = try {
+                                    withContext(Dispatchers.IO) {
+                                        when (which) {
+                                            0 -> {
+                                                val file = PluginManager.downloadPluginToFile(plugin.url)
+                                                file != null && PluginLoader.loadPlugin(hostContext, file)
                                             }
-                                        }
-                                        1 -> {
-                                            success = PluginManager.deletePluginFile(plugin.url)
-                                            if (success) {
-                                                setIconReflect(android.R.drawable.stat_sys_download)
+                                            1 -> {
+                                                PluginManager.deletePluginFile(plugin.url)
                                             }
+                                            else -> false
                                         }
                                     }
                                 } catch (_: Exception) {
-                                    setIconReflect(android.R.drawable.ic_popup_disk_full)
-                                } finally {
-                                    setEnabled(true)
-                                    reloadPlugins()
+                                    false
                                 }
+
+                                // Update UI
+
+                                if (success) {
+                                    when (which) {
+                                        0 -> setIconReflect(android.R.drawable.star_big_on)
+                                        1 -> setIconReflect(android.R.drawable.stat_sys_download)
+                                    }
+                                } else {
+                                    val message = when (which) {
+                                        0 -> "Initial load failed. Extension may not be supported"
+                                        else -> "Operation failed"
+                                    }
+                                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                    setIconReflect(android.R.drawable.ic_popup_disk_full)
+                                }
+
+                                setEnabled(true)
+                                reloadPlugins()
                             }
                         }
                         .show()
