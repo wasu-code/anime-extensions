@@ -87,6 +87,8 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
         EditTextPreference(screen.context).apply {
             key = "REPOS"
             title = "Plugin repositories"
+            dialogTitle = "List of plugin repositories"
+            dialogMessage = "Paste here the repository URLs you want to add (one per line)\nRepository URL usually ends with /repo.json"
             summary = "${preferences.getString(key, "")?.lines()?.filter { it.isNotBlank() }?.size ?: 0} repo(s) added"
             setDefaultValue("")
             setOnPreferenceChangeListener { _, newValue ->
@@ -305,7 +307,9 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
                                             if (success) {
                                                 setIconReflect(android.R.drawable.star_big_on)
                                             } else {
-                                                Toast.makeText(context, "Plugin load failed", Toast.LENGTH_SHORT).show()
+                                                withContext(Dispatchers.Main) {
+                                                    Toast.makeText(context, "Plugin load failed", Toast.LENGTH_SHORT).show()
+                                                }
                                                 setIconReflect(android.R.drawable.ic_popup_disk_full)
                                             }
                                         }
