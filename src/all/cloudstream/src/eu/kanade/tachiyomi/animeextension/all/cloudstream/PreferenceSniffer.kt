@@ -5,17 +5,38 @@ import android.content.ContextWrapper
 import android.content.SharedPreferences
 import android.util.Log
 
+/**
+ * A [ContextWrapper] that intercepts calls to SharedPreferences and tracks
+ * which preference keys are accessed during runtime.
+ *
+ * @param base The base context to wrap.
+ */
 class LoggingContext(base: Context) : ContextWrapper(base) {
 
-    // Public set of all keys accessed
+    /**
+     * A mutable set containing all preference keys that have been accessed
+     * through this context instance.
+     */
     val accessedKeys: MutableSet<String> = mutableSetOf()
 
+    /**
+     * Returns a wrapped [SharedPreferences] instance that logs and tracks
+     * all accessed keys.
+     */
     override fun getSharedPreferences(name: String, mode: Int): SharedPreferences {
         val prefs = super.getSharedPreferences(name, mode)
         return LoggingSharedPreferences(prefs, name, accessedKeys)
     }
 }
 
+/**
+ * A wrapper around [SharedPreferences] that logs access to preference keys
+ * and records them in a shared set.
+ *
+ * @param prefs The original SharedPreferences instance being wrapped.
+ * @param name The name of the SharedPreferences file (used for logging).
+ * @param globalKeys A shared set used to collect all accessed keys.
+ */
 class LoggingSharedPreferences(
     private val prefs: SharedPreferences,
     private val name: String,

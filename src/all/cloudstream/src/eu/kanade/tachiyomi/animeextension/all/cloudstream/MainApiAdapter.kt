@@ -22,8 +22,8 @@ import okhttp3.Request
 import okhttp3.Response
 
 /**
- * Adapter: Wraps a Cloudstream MainAPI provider so it can be used
- * as a Aniyomi AnimeHttpSource at runtime.
+ * Adapter: Wraps a Cloudstream [MainAPI] provider so it can be used
+ * as a Aniyomi [AnimeHttpSource] at runtime.
  */
 open class MainApiAdapter(
     private val api: MainAPI,

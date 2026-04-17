@@ -18,9 +18,13 @@ import kotlin.io.extension
 import kotlin.io.use
 import kotlin.jvm.java
 
+/**
+ * Handles loading plugins physically stored on the device.
+ * PluginLoader expects files in host app's internal directory (`context.filesDir`)
+ * subfolder named [PLUGIN_FOLDER].
+ */
 object PluginLoader {
     private const val PLUGIN_FOLDER = "cloudstream"
-    private val HANDLER by lazy { Handler(Looper.getMainLooper()) }
 
     fun loadPlugin(context: Application, file: File): Boolean {
         try {
@@ -38,6 +42,8 @@ object PluginLoader {
                     if (pluginInstance is Plugin) {
                         Log.d("CloudStream", "Class 'Plugin' not yet fully supported: ${manifest.name} ($file)")
 
+                        // Intercept preference reads/writes made by plugin during load
+                        // to allow user to override them manually from extension settings
                         val loggingContext = LoggingContext(context)
                         pluginInstance.openSettings = { ctx ->
                             android.app.AlertDialog.Builder(ctx)

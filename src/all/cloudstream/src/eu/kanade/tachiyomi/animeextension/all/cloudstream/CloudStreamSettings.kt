@@ -57,7 +57,7 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
 
     private val hostContext = Injekt.get<Application>()
     private val preferences: SharedPreferences by lazy {
-        Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
+        hostContext.getSharedPreferences("source_$id", 0x0000)
     }
 
     @SuppressLint("ApplySharedPref")
