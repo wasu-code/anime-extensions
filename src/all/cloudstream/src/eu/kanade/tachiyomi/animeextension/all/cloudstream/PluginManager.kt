@@ -64,14 +64,9 @@ object PluginManager {
         EXTENSIONS_DIR.mkdirs()
     }
 
-    fun getPluginCount(): Int = EXTENSIONS_DIR.listFiles()?.size ?: 0
+    fun getPluginCount(): Int = getInstalledPlugins().size
 
     fun getInstalledPlugins(): List<SitePlugin> = PluginRegistry.getAll()
-
-    fun isPluginInstalled(pluginUrl: String): Boolean {
-        val plugin = PluginRegistry.get(pluginUrl)
-        return plugin != null
-    }
 
     private fun write(stream: InputStream, output: OutputStream) {
         val input = BufferedInputStream(stream)
