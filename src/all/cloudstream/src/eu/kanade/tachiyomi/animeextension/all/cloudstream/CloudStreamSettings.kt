@@ -152,7 +152,7 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
                         .setTitle("Purge plugins?")
                         .setMessage("This will remove all installed CloudStream plugins")
                         .setIcon(android.R.drawable.ic_dialog_alert)
-                        .setPositiveButton("Purge") { dialog, which ->
+                        .setPositiveButton("Purge") { _, _ ->
                             scope.launch {
                                 setEnabled(false)
                                 val success = PluginManager.deleteAllPluginFiles()
@@ -211,21 +211,20 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
                     setIconReflect(android.R.drawable.button_onoff_indicator_off)
                 }.also(screen::addPreference)
 
-            val plugins = fm.getFilteredPlugins()
+            val pluginStates = fm.getFilteredPlugins()
             withContext(Dispatchers.Main) {
                 // Add divider and plugin switches
-                if (plugins.isNotEmpty()) {
+                if (pluginStates.isNotEmpty()) {
                     loadingPref.apply {
-                        summary = "Showing ${plugins.size} plugins"
+                        summary = "Showing ${pluginStates.size} plugins"
                         setIconReflect(android.R.drawable.button_onoff_indicator_on)
                     }
-                    plugins.forEach { plugin ->
+                    pluginStates.forEach { pluginState ->
                         screen.addPreference(
                             createPluginItem(
                                 screen.context,
-                                plugin,
+                                pluginState,
                                 scope,
-                                fm.isPluginInstalled(plugin.url),
                             ),
                         )
                     }
@@ -236,7 +235,8 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
         }
     }
 
-    private fun createPluginItem(context: Context, plugin: SitePlugin, scope: CoroutineScope, isInstalled: Boolean = false): Preference {
+    private fun createPluginItem(context: Context, pluginState: PluginState, scope: CoroutineScope): Preference {
+        val plugin = pluginState.plugin
         return Preference::class.java
             .getConstructor(Context::class.java)
             .newInstance(context).apply {
@@ -249,16 +249,22 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
                     status: ${arrayOf("Down", "Ok", "Slow", "Beta")[plugin.status]}
                 """.trimIndent()
 
-                val installed = isInstalled
+                val installed = pluginState.installed
                 setDefaultValue(installed)
                 setEnabled(installed || plugin.status > 0)
                 setIconReflect(
                     when {
-//                    updateAvailable -> android.R.drawable.ic_notification_overlay
-                        installed && plugin.status == 0 -> android.R.drawable.ic_notification_clear_all
+                        // update pending
+                        pluginState.updateAvailable == true -> android.R.drawable.ic_notification_overlay
+                        // installed and working as expected
                         installed && plugin.status == 1 -> android.R.drawable.star_big_on
+                        // installed but not working
+                        installed && plugin.status == 0 -> android.R.drawable.ic_notification_clear_all
+                        // installed but slow or in beta state
                         installed -> android.R.drawable.star_big_off
+                        // not installed and not expected to work
                         plugin.status == 0 -> android.R.drawable.ic_notification_clear_all
+                        // available for download
                         else -> android.R.drawable.stat_sys_download
                     },
                 )
@@ -280,7 +286,7 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
                                     withContext(Dispatchers.IO) {
                                         when (which) {
                                             0 -> {
-                                                val file = PluginManager.downloadPluginToFile(plugin.url)
+                                                val file = PluginManager.downloadPluginToFile(plugin)
                                                 file != null && PluginLoader.loadPlugin(hostContext, file)
                                             }
                                             1 -> {
@@ -305,7 +311,7 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
                                         0 -> "Initial load failed. Extension may not be supported"
                                         else -> "Operation failed"
                                     }
-                                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                                     setIconReflect(android.R.drawable.ic_popup_disk_full)
                                 }
 
@@ -388,32 +394,74 @@ class FilterManager(private val prefs: SharedPreferences) {
     /**
      * Return set of repository URLs enabled in settings.
      */
-    fun getFilteredRepos(): Set<String> =
+    fun getActiveRepos(): Set<String> =
         prefs.getStringSet("FILTER_REPO", getRepos()) ?: emptySet()
 
     /**
-     * Return list of all plugins across all repositories enabled in [makeRepoFilter].
+     * Return list of all plugins across all repositories enabled in [makeRepoFilter] and locally installed.
      */
-    suspend fun getPlugins(): List<SitePlugin> = getFilteredRepos().flatMap { getPluginsForRepo(it) }
+    suspend fun getPlugins(): List<PluginState> {
+        val activeRepos = getActiveRepos()
+        val repoPlugins = activeRepos
+            .flatMap { getPluginsForRepo(it) }
+        val installedPlugins = PluginManager.getInstalledPlugins()
+
+        val repoPluginsMap = repoPlugins.associateBy { it.url.hashCode() }
+        val installedPluginsMap = installedPlugins.associateBy { it.url.hashCode() }
+
+        val result = LinkedHashMap<Int, PluginState>()
+
+        // iterate add repo plugins
+        for ((key, repoPlugin) in repoPluginsMap) {
+            val installed = installedPluginsMap[key]
+
+            val updateAvailable =
+                installed != null && installed.version < repoPlugin.version
+
+            result[key] = PluginState(
+                plugin = installed ?: repoPlugin,
+                installed = installed != null,
+                updateAvailable = updateAvailable,
+                orphaned = false,
+            )
+        }
+
+        // iterate local plugins
+        for ((key, installed) in installedPluginsMap) {
+            // not among plugins from enabled repos
+            if (key !in repoPluginsMap) {
+                // if repo is enabled but plugin not in repo anymore -> orphan
+                // else we're not sure (would need to fetch its repo)
+                val isOrphan = if (installed.repositoryUrl in activeRepos) true else null
+                result[key] = PluginState(
+                    plugin = installed,
+                    installed = true,
+                    updateAvailable = if (isOrphan == true) false else null,
+                    orphaned = isOrphan,
+                )
+            }
+        }
+
+        return result.values.toList()
+    }
 
     /**
      * Return list of plugins matching current filter settings.
      */
-    suspend fun getFilteredPlugins(): List<SitePlugin> {
+    suspend fun getFilteredPlugins(): List<PluginState> {
         val selectedLangs = prefs.getStringSet("FILTER_LANGUAGE", emptySet()) ?: emptySet()
         val selectedTypes = prefs.getStringSet("FILTER_TVTYPE", TvType.values().map { it.name }.toSet()) ?: emptySet()
         val selectedStatus = prefs.getStringSet("FILTER_STATUS", setOf("0", "1", "2", "3")) ?: emptySet()
         val installedOnly = prefs.getBoolean("FILTER_INSTALLED_ONLY", false)
 
-        return getPlugins().filter { plugin ->
-            (!installedOnly || isPluginInstalled(plugin.url)) &&
+        return getPlugins().filter { pluginState ->
+            val plugin = pluginState.plugin
+            (!installedOnly || pluginState.installed) &&
                 (plugin.tvTypes.isNullOrEmpty() || plugin.tvTypes.any { it in selectedTypes }) &&
                 (plugin.status.toString() in selectedStatus) &&
                 (selectedLangs.isEmpty() || plugin.language.isNullOrBlank() || plugin.language in selectedLangs)
         }
     }
-
-    fun isPluginInstalled(pluginUrl: String) = PluginManager.isPluginInstalled(pluginUrl)
 
     fun applyFilters(context: Context) { context.getActivity()?.recreate() }
 
@@ -456,9 +504,7 @@ class FilterManager(private val prefs: SharedPreferences) {
 
         // Load available languages asynchronously
         scope.launch {
-            val plugins = getPlugins()
-            val langs = plugins
-                .mapNotNull { it.language }
+            val langs = getPlugins().mapNotNull { it.plugin.language }
                 .filter { it.isNotBlank() }
                 .distinct()
                 .sorted()

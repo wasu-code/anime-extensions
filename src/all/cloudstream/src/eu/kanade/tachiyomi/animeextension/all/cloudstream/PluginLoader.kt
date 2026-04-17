@@ -1,8 +1,6 @@
 package eu.kanade.tachiyomi.animeextension.all.cloudstream
 
 import android.app.Application
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.MainAPI

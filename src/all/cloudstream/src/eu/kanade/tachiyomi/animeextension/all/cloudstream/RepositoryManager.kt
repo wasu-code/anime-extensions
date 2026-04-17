@@ -24,10 +24,10 @@ data class SitePlugin(
     val name: String,
     val version: Int,
     val description: String? = null,
-    val status: Int = 1, // plugin status (0=down, 1=ok, 2=slow, 3=beta)
+    /** plugin status (0=down, 1=ok, 2=slow, 3=beta) */
+    val status: Int = 1,
     val internalName: String,
     val repositoryUrl: String?,
-    // These types are yet to be mapped and used
     val tvTypes: List<String>? = null,
     val language: String? = null,
 )
