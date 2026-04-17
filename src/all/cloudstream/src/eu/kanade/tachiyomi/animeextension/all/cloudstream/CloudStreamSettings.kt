@@ -27,6 +27,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import org.schabi.newpipe.extractor.timeago.patterns.it
 import rx.Observable
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -406,8 +407,14 @@ class FilterManager(private val prefs: SharedPreferences) {
             .flatMap { getPluginsForRepo(it) }
         val installedPlugins = PluginManager.getInstalledPlugins()
 
-        val repoPluginsMap = repoPlugins.associateBy { it.url.hashCode() }
-        val installedPluginsMap = installedPlugins.associateBy { it.url.hashCode() }
+        // sort here so plugins from not active repos are added at the end
+        // but in alphabetical order
+        val repoPluginsMap = repoPlugins
+            .sortedBy { it.name }
+            .associateBy { it.url.hashCode() }
+        val installedPluginsMap = installedPlugins
+            .sortedBy { it.name }
+            .associateBy { it.url.hashCode() }
 
         val result = LinkedHashMap<Int, PluginState>()
 
