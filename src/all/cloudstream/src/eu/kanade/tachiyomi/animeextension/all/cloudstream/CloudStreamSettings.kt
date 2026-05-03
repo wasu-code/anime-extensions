@@ -6,8 +6,8 @@ import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
-import android.net.Uri
 import android.widget.Toast
+import androidx.core.net.toUri
 import androidx.preference.CheckBoxPreference
 import androidx.preference.EditTextPreference
 import androidx.preference.MultiSelectListPreference
@@ -42,6 +42,7 @@ fun Context.getActivity(): android.app.Activity? {
     }
     return null
 }
+
 object PluginCache {
     private val PLUGIN_MAP = mutableMapOf<String, List<SitePlugin>>()
 
@@ -49,7 +50,7 @@ object PluginCache {
     fun put(repoUrl: String, plugins: List<SitePlugin>) { PLUGIN_MAP[repoUrl] = plugins }
 }
 
-class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
+class CloudStreamSettings : AnimeSource, ConfigurableAnimeSource {
     override val id: Long = 133745
     val lang: String = "all"
     override val name: String = "! ⭐ CloudStream Settings ⭐ !"
@@ -71,17 +72,13 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
         val hasMethod = clazz.methods.any { it.name == methodName }
         val hostAppName = hostContext.applicationInfo.loadLabel(hostContext.packageManager)
         if (!hasMethod) {
-            Preference::class.java
-                .getConstructor(Context::class.java)
-                .newInstance(screen.context)
-                .apply {
-                    summary = """
-                        Your host app ($hostAppName) uses an outdated version of the GSON library (older than v2.11.0).
-                        Some extensions may not work properly (and throw NoSuchMethodError for setStrictness).
-                    """.trimIndent()
-                    setIconReflect(android.R.drawable.ic_dialog_alert)
-                }
-                .also(screen::addPreference)
+            newPreference(screen.context) {
+                summary = """
+                    Your host app ($hostAppName) uses an outdated version of the GSON library (older than v2.11.0).
+                    Some extensions may not work properly (and throw NoSuchMethodError for setStrictness).
+                """.trimIndent()
+                setIcon_reflect(android.R.drawable.ic_dialog_alert)
+            }.also(screen::addPreference)
         }
 
         EditTextPreference(screen.context).apply {
@@ -99,29 +96,25 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
             }
         }.also(screen::addPreference)
 
-        Preference::class.java
-            .getConstructor(Context::class.java)
-            .newInstance(screen.context)
-            .apply {
-                key = "BTN_ADD_ALL"
-                title = "Add all well known repos"
-                summary = "Add all well known plugin repositories."
-                setOnPreferenceClickListener {
-                    scope.launch {
-                        val userRepos = fm.getRepos()
-                        val wellKnownRepos = RepositoryManager.getWellKnownRepos()
-                        val allRepos = (userRepos + wellKnownRepos).toSet()
-                        preferences.edit().putString("REPOS", allRepos.joinToString("\n")).commit()
-                        withContext(Dispatchers.Main) {
-                            fm.applyFilters(screen.context)
-                            Toast.makeText(screen.context, "Don't forget to select newly added repos in filters!", Toast.LENGTH_LONG).show()
-                        }
+        newPreference(screen.context) {
+            key = "BTN_ADD_ALL"
+            title = "Add all well known repos"
+            summary = "Add all well known plugin repositories."
+            setIcon_reflect(android.R.drawable.ic_menu_add)
+            setOnPreferenceClickListener {
+                scope.launch {
+                    val userRepos = fm.getRepos()
+                    val wellKnownRepos = RepositoryManager.getWellKnownRepos()
+                    val allRepos = (userRepos + wellKnownRepos).toSet()
+                    preferences.edit().putString("REPOS", allRepos.joinToString("\n")).commit()
+                    withContext(Dispatchers.Main) {
+                        fm.applyFilters(screen.context)
+                        Toast.makeText(screen.context, "Don't forget to select newly added repos in filters!", Toast.LENGTH_LONG).show()
                     }
-                    true
                 }
+                true
             }
-            .setIconReflect(android.R.drawable.ic_menu_add)
-            .also(screen::addPreference)
+        }.also(screen::addPreference)
 
         val filters = PreferenceCategory(screen.context).apply {
             title = "Filters"
@@ -139,94 +132,58 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
             summary = "Install or uninstall plugins"
         }.also(screen::addPreference)
 
-        Preference::class.java
-            .getConstructor(Context::class.java)
-            .newInstance(screen.context)
-            .apply {
-                title = "Purge all plugin files"
-                summary = "${PluginManager.getPluginCount()} plugin(s) installed, ${APIHolder.allProviders.size} provider(s) loaded"
-                setIconReflect(android.R.drawable.ic_menu_delete)
-
-                setOnPreferenceClickListener {
-                    AlertDialog.Builder(screen.context)
-                        .setTitle("Purge plugins?")
-                        .setMessage("This will remove all installed CloudStream plugins")
-                        .setIcon(android.R.drawable.ic_dialog_alert)
-                        .setPositiveButton("Purge") { _, _ ->
-                            scope.launch {
-                                setEnabled(false)
-                                val success = PluginManager.deleteAllPluginFiles()
-                                withContext(Dispatchers.Main) {
-                                    Toast.makeText(screen.context, "All plugin files deleted? $success", Toast.LENGTH_SHORT).show()
-                                    setEnabled(true)
-                                    preferences.edit().putStringSet("EXTENSIONS", emptySet()).commit()
-                                    fm.applyFilters(screen.context)
-                                }
+        newPreference(screen.context) {
+            title = "Purge all plugin files"
+            summary = "${PluginManager.getPluginCount()} plugin(s) installed, ${APIHolder.allProviders.size} provider(s) loaded"
+            setIcon_reflect(android.R.drawable.ic_menu_delete)
+            setOnPreferenceClickListener {
+                AlertDialog.Builder(screen.context)
+                    .setTitle("Purge plugins?")
+                    .setMessage("This will remove all installed CloudStream plugins")
+                    .setIcon(android.R.drawable.ic_dialog_alert)
+                    .setPositiveButton("Purge") { _, _ ->
+                        scope.launch {
+                            setEnabled(false)
+                            val success = PluginManager.deleteAllPluginFiles()
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(screen.context, "All plugin files deleted? $success", Toast.LENGTH_SHORT).show()
+                                setEnabled(true)
+                                preferences.edit().putStringSet("EXTENSIONS", emptySet()).commit()
+                                fm.applyFilters(screen.context)
                             }
                         }
-                        .setNegativeButton("Cancel", null)
-                        .show()
-                    true
-                }
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+                true
             }
-            .also(screen::addPreference)
+        }.also(screen::addPreference)
 
         loadPluginList(screen, fm, scope)
     }
 
-    fun Preference.setIconReflect(resId: Int): Preference {
-        try {
-            // get the context from Preference via reflection
-            val contextField = this.javaClass.getDeclaredField("mContext")
-            contextField.isAccessible = true
-            val context = contextField.get(this)
-
-            val drawable = context.javaClass
-                .getMethod("getDrawable", Int::class.javaPrimitiveType)
-                .invoke(context, resId)
-
-            val drawableClass = Class.forName("android.graphics.drawable.Drawable")
-
-            this.javaClass
-                .getMethod("setIcon", drawableClass)
-                .invoke(this, drawable)
-
-            // always reserve space for icon
-            this.javaClass
-                .getMethod("setIconSpaceReserved", Boolean::class.javaPrimitiveType)
-                .invoke(this, true)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        return this
-    }
+    private fun newPreference(context: Context, block: Preference.() -> Unit): Preference =
+        Preference::class.java
+            .getConstructor(Context::class.java)
+            .newInstance(context)
+            .apply(block)
 
     private fun loadPluginList(screen: PreferenceScreen, fm: FilterManager, scope: CoroutineScope) {
         scope.launch {
-            val loadingPref = Preference::class.java
-                .getConstructor(Context::class.java)
-                .newInstance(screen.context)
-                .apply {
-                    summary = "Loading plugins..."
-                    setIconReflect(android.R.drawable.button_onoff_indicator_off)
-                }.also(screen::addPreference)
+            val loadingPref = newPreference(screen.context) {
+                summary = "Loading plugins..."
+                setIcon_reflect(android.R.drawable.button_onoff_indicator_off)
+            }.also(screen::addPreference)
 
             val pluginStates = fm.getFilteredPlugins()
             withContext(Dispatchers.Main) {
-                // Add divider and plugin switches
                 if (pluginStates.isNotEmpty()) {
                     loadingPref.apply {
                         summary = "Showing ${pluginStates.size} plugins"
-                        setIconReflect(android.R.drawable.button_onoff_indicator_on)
+                        setIcon_reflect(android.R.drawable.button_onoff_indicator_on)
                     }
                     pluginStates.forEach { pluginState ->
-                        screen.addPreference(
-                            createPluginItem(
-                                screen.context,
-                                pluginState,
-                                scope,
-                            ),
-                        )
+                        screen.addPreference(createPluginItem(screen.context, pluginState, scope))
                     }
                 } else {
                     loadingPref.summary = "No plugins match current filters"
@@ -237,93 +194,81 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
 
     private fun createPluginItem(context: Context, pluginState: PluginState, scope: CoroutineScope): Preference {
         val plugin = pluginState.plugin
-        return Preference::class.java
-            .getConstructor(Context::class.java)
-            .newInstance(context).apply {
-                title = "${plugin.name} (${plugin.language?.uppercase() ?: "ALL"})"
-                summary = """
-                    ${plugin.description}
-                    ${plugin.tvTypes?.joinToString(" // ")}
-                    from: ${URL(plugin.repositoryUrl).path.trimStart('/')}
-                    version: ${plugin.version}
-                    status: ${arrayOf("Down", "Ok", "Slow", "Beta")[plugin.status]}
-                """.trimIndent()
+        return newPreference(context) {
+            title = "${plugin.name} (${plugin.language?.uppercase() ?: "ALL"})"
+            summary = """
+                ${plugin.description}
+                ${plugin.tvTypes?.joinToString(" // ")}
+                from: ${URL(plugin.repositoryUrl).path.trimStart('/')}
+                version: ${plugin.version}
+                status: ${arrayOf("Down", "Ok", "Slow", "Beta")[plugin.status]}
+            """.trimIndent()
 
-                val installed = pluginState.installed
-                setDefaultValue(installed)
-                setEnabled(installed || plugin.status > 0)
-                setIconReflect(
-                    when {
-                        // update pending
-                        pluginState.updateAvailable == true -> android.R.drawable.ic_notification_overlay
-                        // installed and working as expected
-                        installed && plugin.status == 1 -> android.R.drawable.star_big_on
-                        // installed but not working
-                        installed && plugin.status == 0 -> android.R.drawable.ic_notification_clear_all
-                        // installed but slow or in beta state
-                        installed -> android.R.drawable.star_big_off
-                        // not installed and not expected to work
-                        plugin.status == 0 -> android.R.drawable.ic_notification_clear_all
-                        // available for download
-                        else -> android.R.drawable.stat_sys_download
-                    },
-                )
+            val installed = pluginState.installed
+            setDefaultValue(installed)
+            setEnabled(installed || plugin.status > 0)
+            setIcon_reflect(
+                when {
+                    // update pending
+                    pluginState.updateAvailable == true -> android.R.drawable.ic_notification_overlay
+                    // installed and working as expected
+                    installed && plugin.status == 1 -> android.R.drawable.star_big_on
+                    // installed but not working
+                    installed && plugin.status == 0 -> android.R.drawable.ic_notification_clear_all
+                    // installed but slow or in beta state
+                    installed -> android.R.drawable.star_big_off
+                    // not installed and not expected to work
+                    plugin.status == 0 -> android.R.drawable.ic_notification_clear_all
+                    // available for download
+                    else -> android.R.drawable.stat_sys_download
+                },
+            )
 
-                setOnPreferenceClickListener {
-                    val items = arrayOf(
-                        "Install/Update",
-                        "Uninstall",
-                    )
-
-                    AlertDialog.Builder(context)
-                        .setTitle("Manage Plugin")
-                        .setIcon(android.R.drawable.ic_dialog_dialer)
-                        .setItems(items) { _, which ->
-                            setEnabled(false)
-
-                            scope.launch(Dispatchers.Main) {
-                                val success = try {
-                                    withContext(Dispatchers.IO) {
-                                        when (which) {
-                                            0 -> {
-                                                val file = PluginManager.downloadPluginToFile(plugin)
-                                                file != null && PluginLoader.loadPlugin(hostContext, file)
-                                            }
-                                            1 -> {
-                                                PluginManager.deletePluginFile(plugin.url)
-                                            }
-                                            else -> false
-                                        }
-                                    }
-                                } catch (_: Exception) {
-                                    false
-                                }
-
-                                // Update UI
-
-                                if (success) {
+            setOnPreferenceClickListener {
+                val items = arrayOf("Install/Update", "Uninstall")
+                AlertDialog.Builder(context)
+                    .setTitle("Manage Plugin")
+                    .setIcon(android.R.drawable.ic_dialog_dialer)
+                    .setItems(items) { _, which ->
+                        setEnabled(false)
+                        scope.launch(Dispatchers.Main) {
+                            val success = try {
+                                withContext(Dispatchers.IO) {
                                     when (which) {
-                                        0 -> setIconReflect(android.R.drawable.star_big_on)
-                                        1 -> setIconReflect(android.R.drawable.stat_sys_download)
+                                        0 -> {
+                                            val file = PluginManager.downloadPluginToFile(plugin)
+                                            file != null && PluginLoader.loadPlugin(hostContext, file)
+                                        }
+                                        1 -> PluginManager.deletePluginFile(plugin.url)
+                                        else -> false
                                     }
-                                } else {
-                                    val message = when (which) {
-                                        0 -> "Initial load failed. Extension may not be supported"
-                                        else -> "Operation failed"
-                                    }
-                                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
-                                    setIconReflect(android.R.drawable.ic_popup_disk_full)
                                 }
-
-                                setEnabled(true)
-                                reloadPlugins()
+                            } catch (_: Exception) {
+                                false
                             }
-                        }
-                        .show()
 
-                    true
-                }
+                            if (success) {
+                                when (which) {
+                                    0 -> setIcon_reflect(android.R.drawable.star_big_on)
+                                    1 -> setIcon_reflect(android.R.drawable.stat_sys_download)
+                                }
+                            } else {
+                                val message = when (which) {
+                                    0 -> "Initial load failed. Extension may not be supported"
+                                    else -> "Operation failed"
+                                }
+                                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                                setIcon_reflect(android.R.drawable.ic_popup_disk_full)
+                            }
+
+                            setEnabled(true)
+                            reloadPlugins()
+                        }
+                    }
+                    .show()
+                true
             }
+        }
     }
 
     /**
@@ -333,7 +278,7 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
         val applicationId = hostContext.packageName // theoretically should be BuildConfig.APPLICATION_ID of host app
         val extensionPackageName = this::class.java.`package`?.name
         Intent("$applicationId.ACTION_EXTENSION_REPLACED").apply {
-            data = Uri.parse("package:$extensionPackageName")
+            data = "package:$extensionPackageName".toUri()
             `package` = hostContext.packageName
             hostContext.sendBroadcast(this)
         }
@@ -348,10 +293,85 @@ class CloudStreamSettings() : AnimeSource, ConfigurableAnimeSource {
 
     @Deprecated("Use the non-RxJava API instead", replaceWith = ReplaceWith("getVideoList"))
     override fun fetchVideoList(episode: SEpisode): Observable<List<Video>> = throw UnsupportedOperationException("Not Used")
+
     override suspend fun getAnimeDetails(anime: SAnime): SAnime = throw UnsupportedOperationException("Not Used")
     override suspend fun getEpisodeList(anime: SAnime): List<SEpisode> = throw UnsupportedOperationException("Not Used")
     override suspend fun getVideoList(episode: SEpisode): List<Video> = throw UnsupportedOperationException("Not Used")
 }
+
+//  === Preference Helpers ====================================================
+
+private fun newPreference(context: Context, block: Preference.() -> Unit): Preference =
+    Preference::class.java
+        .getConstructor(Context::class.java)
+        .newInstance(context)
+        .apply(block)
+
+@Suppress("FunctionName")
+private fun PreferenceScreen.getPreference_reflect(index: Int): Preference? = try {
+    PreferenceScreen::class.java
+        .getMethod("getPreference", Int::class.javaPrimitiveType)
+        .invoke(this, index) as? Preference
+} catch (_: Exception) {
+    null
+}
+
+@Suppress("FunctionName")
+private fun PreferenceScreen.getPreferenceCount_reflect(): Int = try {
+    PreferenceScreen::class.java
+        .getMethod("getPreferenceCount")
+        .invoke(this) as Int
+} catch (_: Exception) {
+    0
+}
+
+@Suppress("FunctionName")
+private fun PreferenceScreen.removePreference_reflect(pref: Preference) {
+    try {
+        PreferenceScreen::class.java
+            .getMethod("removePreference", Preference::class.java)
+            .invoke(this, pref)
+    } catch (_: Exception) {
+    }
+}
+
+@Suppress("FunctionName")
+private fun PreferenceScreen.removeAllPreferences_reflect() {
+    try {
+        PreferenceScreen::class.java
+            .getMethod("removeAll")
+            .invoke(this)
+    } catch (_: Exception) {
+    }
+}
+
+@Suppress("FunctionName")
+fun Preference.setIcon_reflect(resId: Int): Preference {
+    try {
+        val contextField = this.javaClass.getDeclaredField("mContext")
+        contextField.isAccessible = true
+        val context = contextField.get(this)
+
+        val drawable = context.javaClass
+            .getMethod("getDrawable", Int::class.javaPrimitiveType)
+            .invoke(context, resId)
+
+        val drawableClass = Class.forName("android.graphics.drawable.Drawable")
+
+        this.javaClass
+            .getMethod("setIcon", drawableClass)
+            .invoke(this, drawable)
+
+        this.javaClass
+            .getMethod("setIconSpaceReserved", Boolean::class.javaPrimitiveType)
+            .invoke(this, true)
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+    return this
+}
+
+//  === FilterManager =========================================================
 
 @Suppress("UNCHECKED_CAST")
 @SuppressLint("ApplySharedPref")
@@ -364,12 +384,11 @@ class FilterManager(private val prefs: SharedPreferences) {
     }
 
     private val scope = CoroutineScope(Dispatchers.IO)
-
     private val repoMutexMap = mutableMapOf<String, Mutex>()
 
     /**
      * Return list of plugins for given repository URL.
-     * Will used cached list if available or fetch and add them to cache.
+     * Will use cached list if available or fetch and add them to cache.
      */
     suspend fun getPluginsForRepo(repoUrl: String): List<SitePlugin> {
         // Return cached if available
@@ -377,23 +396,17 @@ class FilterManager(private val prefs: SharedPreferences) {
 
         val mutex = repoMutexMap.getOrPut(repoUrl) { Mutex() }
         return mutex.withLock {
-            // Double-check cache inside lock
             PluginCache.get(repoUrl)?.let { return it }
-
             RepositoryManager.getRepoPlugins(repoUrl).also { PluginCache.put(repoUrl, it) }
         }
     }
 
-    /**
-     * Return set of repository URLs added in settings. This includes disabled repositories.
-     */
+    /** Return set of repository URLs added in settings. This includes disabled repositories. */
     fun getRepos(): Set<String> =
         prefs.getString("REPOS", "")
             ?.lines()?.filter { it.isNotBlank() }?.toSet() ?: emptySet()
 
-    /**
-     * Return set of repository URLs enabled in settings.
-     */
+    /** Return set of repository URLs enabled in settings. */
     fun getActiveRepos(): Set<String> =
         prefs.getStringSet("FILTER_REPO", getRepos()) ?: emptySet()
 
@@ -402,8 +415,7 @@ class FilterManager(private val prefs: SharedPreferences) {
      */
     suspend fun getPlugins(): List<PluginState> {
         val activeRepos = getActiveRepos()
-        val repoPlugins = activeRepos
-            .flatMap { getPluginsForRepo(it) }
+        val repoPlugins = activeRepos.flatMap { getPluginsForRepo(it) }
         val installedPlugins = PluginManager.getInstalledPlugins()
 
         // sort here so plugins from not active repos are added at the end
@@ -417,17 +429,12 @@ class FilterManager(private val prefs: SharedPreferences) {
 
         val result = LinkedHashMap<Int, PluginState>()
 
-        // iterate add repo plugins
         for ((key, repoPlugin) in repoPluginsMap) {
             val installed = installedPluginsMap[key]
-
-            val updateAvailable =
-                installed != null && installed.version < repoPlugin.version
-
             result[key] = PluginState(
                 plugin = installed ?: repoPlugin,
                 installed = installed != null,
-                updateAvailable = updateAvailable,
+                updateAvailable = installed != null && installed.version < repoPlugin.version,
                 orphaned = false,
             )
         }
@@ -451,9 +458,7 @@ class FilterManager(private val prefs: SharedPreferences) {
         return result.values.toList()
     }
 
-    /**
-     * Return list of plugins matching current filter settings.
-     */
+    /** Return list of plugins matching current filter settings. */
     suspend fun getFilteredPlugins(): List<PluginState> {
         val selectedLangs = prefs.getStringSet("FILTER_LANGUAGE", emptySet()) ?: emptySet()
         val selectedTypes = prefs.getStringSet("FILTER_TVTYPE", TvType.values().map { it.name }.toSet()) ?: emptySet()
@@ -471,22 +476,16 @@ class FilterManager(private val prefs: SharedPreferences) {
 
     fun applyFilters(context: Context) { context.getActivity()?.recreate() }
 
-    // Functions for creating preferences
     fun makeRepoFilter(context: Context) = MultiSelectListPreference(context).apply {
         key = "FILTER_REPO"
         title = "Repository"
 
         val repos = getRepos()
-        entries = repos.map {
-            URL(it)
-                .path
-                .removePrefix("/")
-        }.toTypedArray()
+        entries = repos.map { URL(it).path.removePrefix("/") }.toTypedArray()
         entryValues = repos.toTypedArray()
 
         val storedValues = prefs.getStringSet(key, emptySet()) ?: emptySet()
-        val validValues = storedValues.intersect(repos.toSet())
-        values = validValues
+        values = storedValues.intersect(repos.toSet())
 
         summary = "${values.size} repo(s) selected"
         setDefaultValue(repos)
@@ -496,7 +495,7 @@ class FilterManager(private val prefs: SharedPreferences) {
             prefs.edit().putStringSet(key, selected).commit()
             (pref as MultiSelectListPreference).values = selected
             applyFilters(context)
-            false // skip default saving (updated values already saved manually)
+            false
         }
     }
 
