@@ -66,7 +66,7 @@ class CloudStreamSettings : AnimeSource, ConfigurableAnimeSource {
                     Your host app ($hostAppName) uses an outdated version of the GSON library (older than v2.11.0).
                     Some extensions may not work properly (and throw NoSuchMethodError for setStrictness).
                 """.trimIndent()
-                setIcon_reflect(android.R.drawable.ic_dialog_alert)
+                setIcon(android.R.drawable.ic_dialog_alert)
             }.also(screen::addPreference)
         }
 
@@ -83,7 +83,7 @@ class CloudStreamSettings : AnimeSource, ConfigurableAnimeSource {
             key = "BTN_ADD_ALL"
             title = "Add all well known repos"
             summary = "Add all well known plugin repositories."
-            setIcon_reflect(android.R.drawable.ic_menu_add)
+            setIcon(android.R.drawable.ic_menu_add)
         }.also(screen::addPreference)
 
         val filters = PreferenceCategory(screen.context).apply {
@@ -145,7 +145,7 @@ class CloudStreamSettings : AnimeSource, ConfigurableAnimeSource {
         newPreference(screen.context) {
             title = "Purge all plugin files"
             summary = "${PluginManager.getPluginCount()} plugin(s) installed, ${APIHolder.allProviders.size} provider(s) loaded"
-            setIcon_reflect(android.R.drawable.ic_menu_delete)
+            setIcon(android.R.drawable.ic_menu_delete)
             setOnPreferenceClickListener {
                 AlertDialog.Builder(screen.context)
                     .setTitle("Purge plugins?")
@@ -278,15 +278,15 @@ class CloudStreamSettings : AnimeSource, ConfigurableAnimeSource {
         installedOnly: Boolean,
         langFilter: MultiSelectListPreference,
     ) {
-        val toRemove = (0 until screen.getPreferenceCount_reflect())
-            .mapNotNull { screen.getPreference_reflect(it) }
+        val toRemove = (0 until screen.getPreferenceCount())
+            .mapNotNull { screen.getPreference(it) }
             .filter { it.key?.startsWith("plugin_") == true }
-        toRemove.forEach { screen.removePreference_reflect(it) }
+        toRemove.forEach { screen.removePreference(it) }
 
         val loadingPref = newPreference(screen.context) {
             key = "plugin_loading"
             summary = "Loading plugins..."
-            setIcon_reflect(android.R.drawable.button_onoff_indicator_off)
+            setIcon(android.R.drawable.button_onoff_indicator_off)
         }.also(screen::addPreference)
 
         scope.launch {
@@ -313,7 +313,7 @@ class CloudStreamSettings : AnimeSource, ConfigurableAnimeSource {
                 if (pluginStates.isNotEmpty()) {
                     loadingPref.apply {
                         summary = "Showing ${pluginStates.size} plugins"
-                        setIcon_reflect(android.R.drawable.button_onoff_indicator_on)
+                        setIcon(android.R.drawable.button_onoff_indicator_on)
                     }
 
                     pluginStates.forEachIndexed { index, pluginState ->
@@ -343,7 +343,7 @@ class CloudStreamSettings : AnimeSource, ConfigurableAnimeSource {
             val installed = pluginState.installed
             setDefaultValue(installed)
             setEnabled(installed || plugin.status > 0)
-            setIcon_reflect(
+            setIcon(
                 when {
                     // update pending
                     pluginState.updateAvailable == true -> android.R.drawable.ic_notification_overlay
@@ -385,8 +385,8 @@ class CloudStreamSettings : AnimeSource, ConfigurableAnimeSource {
 
                             if (success) {
                                 when (which) {
-                                    0 -> setIcon_reflect(android.R.drawable.star_big_on)
-                                    1 -> setIcon_reflect(android.R.drawable.stat_sys_download)
+                                    0 -> setIcon(android.R.drawable.star_big_on)
+                                    1 -> setIcon(android.R.drawable.stat_sys_download)
                                 }
                             } else {
                                 val message = when (which) {
@@ -394,7 +394,7 @@ class CloudStreamSettings : AnimeSource, ConfigurableAnimeSource {
                                     else -> "Operation failed"
                                 }
                                 Toast.makeText(context, message, Toast.LENGTH_LONG).show()
-                                setIcon_reflect(android.R.drawable.ic_popup_disk_full)
+                                setIcon(android.R.drawable.ic_popup_disk_full)
                             }
 
                             setEnabled(true)
@@ -443,8 +443,7 @@ private fun newPreference(context: Context, block: Preference.() -> Unit): Prefe
         .newInstance(context)
         .apply(block)
 
-@Suppress("FunctionName")
-private fun PreferenceScreen.getPreference_reflect(index: Int): Preference? = try {
+private fun PreferenceScreen.getPreference(index: Int): Preference? = try {
     PreferenceScreen::class.java
         .getMethod("getPreference", Int::class.javaPrimitiveType)
         .invoke(this, index) as? Preference
@@ -452,8 +451,7 @@ private fun PreferenceScreen.getPreference_reflect(index: Int): Preference? = tr
     null
 }
 
-@Suppress("FunctionName")
-private fun PreferenceScreen.getPreferenceCount_reflect(): Int = try {
+private fun PreferenceScreen.getPreferenceCount(): Int = try {
     PreferenceScreen::class.java
         .getMethod("getPreferenceCount")
         .invoke(this) as Int
@@ -461,8 +459,7 @@ private fun PreferenceScreen.getPreferenceCount_reflect(): Int = try {
     0
 }
 
-@Suppress("FunctionName")
-private fun PreferenceScreen.removePreference_reflect(pref: Preference) {
+private fun PreferenceScreen.removePreference(pref: Preference) {
     try {
         PreferenceScreen::class.java
             .getMethod("removePreference", Preference::class.java)
@@ -471,8 +468,7 @@ private fun PreferenceScreen.removePreference_reflect(pref: Preference) {
     }
 }
 
-@Suppress("FunctionName")
-fun Preference.setIcon_reflect(resId: Int): Preference {
+fun Preference.setIcon(resId: Int): Preference {
     try {
         val contextField = this.javaClass.getDeclaredField("mContext")
         contextField.isAccessible = true
