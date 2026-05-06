@@ -12,6 +12,8 @@ apply from: "$rootDir/common.gradle"
 dependencies {
     //noinspection UseTomlInstead
     implementation("com.github.teamnewpipe:NewPipeExtractor:$libVersion")
+    //noinspection UseTomlInstead
+    compileOnly("androidx.preference:preference-ktx:1.2.1")
 }
 
 android {

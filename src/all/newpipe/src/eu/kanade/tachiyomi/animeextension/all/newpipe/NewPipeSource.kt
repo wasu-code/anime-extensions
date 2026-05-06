@@ -3,11 +3,11 @@ package eu.kanade.tachiyomi.animeextension.all.newpipe
 import android.app.Application
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
-import androidx.preference.EditTextPreference
+import androidx.core.net.toUri
 import androidx.preference.ListPreference
 import androidx.preference.MultiSelectListPreference
 import androidx.preference.Preference
+import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceScreen
 import androidx.preference.SwitchPreferenceCompat
 import eu.kanade.tachiyomi.animeextension.BuildConfig
@@ -64,7 +64,7 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
     private val commonPreferences by lazy {
         Injekt.get<Application>().getSharedPreferences("source_newpipe", 0x0000)
     }
-    private val context by lazy { Injekt.get<Application>() }
+    private val hostContext by lazy { Injekt.get<Application>() }
 
     init {
         NewPipeInit.init(network.client)
@@ -287,10 +287,10 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
             val searchIntent = Intent().apply {
                 action = "eu.kanade.tachiyomi.ANIMESEARCH"
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                putExtra("query", urlWithSafeEnding(Uri.parse(url)))
+                putExtra("query", urlWithSafeEnding(url.toUri()))
                 putExtra("filter", NewPipeSource::class.java.`package`?.name)
             }
-            context.startActivity(searchIntent)
+            hostContext.startActivity(searchIntent)
             return true
         } else {
             return false
@@ -312,7 +312,7 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
         val allowSubsConversion = preferences.getBoolean("CONVERT_SUBTITLES", true)
         val allowedLanguages = preferences.getStringSet("LANGUAGES", setOf())!!
 
-        val subsDir = File(context.cacheDir, SUBTITLES_CACHE_DIR)
+        val subsDir = File(hostContext.cacheDir, SUBTITLES_CACHE_DIR)
         if (!subsDir.exists()) { subsDir.mkdirs() }
 
         val subtitleTracks = info.subtitles
@@ -433,15 +433,16 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
             }.also(screen::addPreference)
         }
 
-        EditTextPreference(screen.context).apply {
-            summary = "Subtitles & Audio tracks"
-            setEnabled(false)
-        }.also(screen::addPreference)
+        val cat1 = PreferenceCategory(screen.context)
+            .apply {
+                title = "Subtitles & Audio tracks"
+            }
+            .also(screen::addPreference)
 
         SwitchPreferenceCompat(screen.context).apply {
             key = "CLEAR_CACHE"
             title = "Clear subtitles cache"
-            val subsDir = File(context.cacheDir, SUBTITLES_CACHE_DIR)
+            val subsDir = File(hostContext.cacheDir, SUBTITLES_CACHE_DIR)
             summary = (subsDir.listFiles()?.size ?: 0).toString() + " cached files"
             setDefaultValue(false)
             setOnPreferenceChangeListener { pref, _ ->
@@ -451,14 +452,14 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
                 switchPref.isChecked = false
                 false // don't save state, it's a button
             }
-        }.also(screen::addPreference)
+        }.also(cat1::addPreference)
 
         SwitchPreferenceCompat(screen.context).apply {
             key = "CONVERT_SUBTITLES"
             title = "Allow subtitles format conversion"
             summary = "May slow down video loading. If disabled unsupported subtitles format will be omitted."
             setDefaultValue(true)
-        }.also(screen::addPreference)
+        }.also(cat1::addPreference)
 
         val commonLanguageCodes = listOf(
             "en", "de", "fr", "es", "it", "pt", "ru", "ja", "ko", "zh-CN", "zh-TW", "pl", "nl", "sv",
@@ -474,12 +475,14 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
             entries = commonLanguageCodes.toTypedArray()
             entryValues = commonLanguageCodes.toTypedArray()
             setDefaultValue(commonLanguageCodes.toSet())
-        }.also(screen::addPreference)
+        }.also(cat1::addPreference)
 
-        EditTextPreference(screen.context).apply {
-            summary = "Common settings"
-            setEnabled(false)
-        }.also(screen::addPreference)
+        val cat2 = PreferenceCategory(screen.context)
+            .apply {
+                title = "Common settings"
+                summary = "Applied to all sources"
+            }
+            .also(screen::addPreference)
 
         val switchValue = commonPreferences.getBoolean("HANDLE_SHARE", true)
         preferences.edit().putBoolean("HANDLE_SHARE", switchValue).apply()
@@ -495,12 +498,12 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
                     putExtra("extra_enable", newValue as Boolean)
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
-                context.startActivity(intent)
+                hostContext.startActivity(intent)
 
                 commonPreferences.edit().putBoolean("HANDLE_SHARE", newValue as Boolean).apply()
                 true
             }
-        }.also(screen::addPreference)
+        }.also(cat2::addPreference)
 
         val preference = Preference::class.java
             .getConstructor(Context::class.java)
