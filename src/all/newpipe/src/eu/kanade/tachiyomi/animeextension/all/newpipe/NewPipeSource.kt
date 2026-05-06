@@ -439,20 +439,19 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
             }
             .also(screen::addPreference)
 
-        SwitchPreferenceCompat(screen.context).apply {
-            key = "CLEAR_CACHE"
-            title = "Clear subtitles cache"
-            val subsDir = File(hostContext.cacheDir, SUBTITLES_CACHE_DIR)
-            summary = (subsDir.listFiles()?.size ?: 0).toString() + " cached files"
-            setDefaultValue(false)
-            setOnPreferenceChangeListener { pref, _ ->
-                subsDir.deleteRecursively()
+        Preference::class.java
+            .getConstructor(Context::class.java)
+            .newInstance(screen.context)
+            .apply {
+                title = "Clear subtitles cache"
+                val subsDir = File(hostContext.cacheDir, SUBTITLES_CACHE_DIR)
                 summary = (subsDir.listFiles()?.size ?: 0).toString() + " cached files"
-                val switchPref = pref as SwitchPreferenceCompat
-                switchPref.isChecked = false
-                false // don't save state, it's a button
-            }
-        }.also(cat1::addPreference)
+                setOnPreferenceClickListener { _ ->
+                    subsDir.deleteRecursively()
+                    summary = (subsDir.listFiles()?.size ?: 0).toString() + " cached files"
+                    true
+                }
+            }.also(cat1::addPreference)
 
         SwitchPreferenceCompat(screen.context).apply {
             key = "CONVERT_SUBTITLES"
