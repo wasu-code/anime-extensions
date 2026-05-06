@@ -1,3 +1,5 @@
+def libVersion = "v0.26.0"
+
 ext {
     extName = 'NewPipe'
     extClass = '.NewPipeFactory'
@@ -9,5 +11,11 @@ apply from: "$rootDir/common.gradle"
 
 dependencies {
     //noinspection UseTomlInstead
-    implementation("com.github.teamnewpipe:NewPipeExtractor:v0.25.1")
+    implementation("com.github.teamnewpipe:NewPipeExtractor:$libVersion")
+}
+
+android {
+    defaultConfig {
+        buildConfigField "String", "LIB_VERSION", "\"${libVersion}\""
+    }
 }

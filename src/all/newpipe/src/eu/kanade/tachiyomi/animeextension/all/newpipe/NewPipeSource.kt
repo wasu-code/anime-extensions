@@ -1,13 +1,16 @@
 package eu.kanade.tachiyomi.animeextension.all.newpipe
 
 import android.app.Application
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
 import androidx.preference.MultiSelectListPreference
+import androidx.preference.Preference
 import androidx.preference.PreferenceScreen
 import androidx.preference.SwitchPreferenceCompat
+import eu.kanade.tachiyomi.animeextension.BuildConfig
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
 import eu.kanade.tachiyomi.animesource.model.AnimeFilter
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
@@ -17,8 +20,13 @@ import eu.kanade.tachiyomi.animesource.model.SEpisode
 import eu.kanade.tachiyomi.animesource.model.Track
 import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.animesource.online.AnimeHttpSource
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.Request
 import okhttp3.Response
+import org.json.JSONObject
 import org.schabi.newpipe.extractor.InfoItem
 import org.schabi.newpipe.extractor.MediaFormat
 import org.schabi.newpipe.extractor.NewPipe
@@ -493,7 +501,48 @@ class NewPipeSource(val service: StreamingService) : AnimeHttpSource(), Configur
                 true
             }
         }.also(screen::addPreference)
+
+        val preference = Preference::class.java
+            .getConstructor(Context::class.java)
+            .newInstance(screen.context)
+            .apply {
+                summary = "Loading version info..."
+                setEnabled(false)
+            }
+            .also(screen::addPreference)
+
+        CoroutineScope(Dispatchers.Main).launch {
+            try {
+                val (latest, latestOk) = fetchJitpackInfo()
+
+                preference.summary = """
+                    NewPipeExtractor
+                    In use: ${BuildConfig.LIB_VERSION}
+                    Latest: $latest
+                    Latest OK: $latestOk
+                """.trimIndent()
+            } catch (e: Exception) {
+                preference.summary = "Loading failed: ${e.message}"
+            }
+        }
     }
+
+    data class JitpackInfo(
+        val version: String,
+        val latestOk: String,
+    )
+
+    suspend fun fetchJitpackInfo(): JitpackInfo =
+        withContext(Dispatchers.IO) {
+            val url = "https://jitpack.io/api/builds/com.github.teamnewpipe/NewPipeExtractor/latest"
+            val json = URL(url).readText()
+            val obj = JSONObject(json)
+
+            JitpackInfo(
+                version = obj.optString("version", "unknown"),
+                latestOk = obj.optString("latestOk", "unknown"),
+            )
+        }
 
     // Helper functions
     fun InfoItem.toSAnime(): SAnime = this.toSAnimeRaw().also { it.setUrlWithoutDomain(this.url) }
