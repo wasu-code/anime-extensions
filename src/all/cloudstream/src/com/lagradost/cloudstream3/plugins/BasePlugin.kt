@@ -42,7 +42,9 @@ abstract class BasePlugin {
     fun registerExtractorAPI(element: ExtractorApi) {
         Log.i(PLUGIN_TAG, "Adding ${element.name} (${element.mainUrl}) ExtractorApi")
         element.sourcePlugin = this.filename
-        extractorApis.add(element)
+        synchronized(extractorApis) {
+            extractorApis.add(element)
+        }
     }
 
     /**
@@ -62,7 +64,8 @@ abstract class BasePlugin {
     /** Full file path to the plugin. */
     @Deprecated(
         "Renamed to `filename` to follow conventions",
-        replaceWith = ReplaceWith("filename")
+        replaceWith = ReplaceWith("filename"),
+        level = DeprecationLevel.ERROR
     )
     var __filename: String?
         get() = filename

@@ -2,6 +2,7 @@ package com.lagradost.cloudstream3.metaproviders
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.lagradost.cloudstream3.Actor
+import com.lagradost.cloudstream3.Episode
 import com.lagradost.cloudstream3.ErrorLoadingException
 import com.lagradost.cloudstream3.HomePageList
 import com.lagradost.cloudstream3.HomePageResponse
@@ -14,6 +15,7 @@ import com.lagradost.cloudstream3.MainPageRequest
 import com.lagradost.cloudstream3.MovieLoadResponse
 import com.lagradost.cloudstream3.MovieSearchResponse
 import com.lagradost.cloudstream3.ProviderType
+import com.lagradost.cloudstream3.Score
 import com.lagradost.cloudstream3.SearchResponseList
 import com.lagradost.cloudstream3.TvSeriesLoadResponse
 import com.lagradost.cloudstream3.TvSeriesSearchResponse
@@ -42,6 +44,7 @@ import com.uwetrottmann.tmdb2.entities.Videos
 import com.uwetrottmann.tmdb2.enumerations.AppendToResponseItem
 import com.uwetrottmann.tmdb2.enumerations.VideoType
 import retrofit2.awaitResponse
+import retrofit2.Response
 import java.util.Calendar
 
 /**
@@ -93,6 +96,7 @@ open class TmdbProvider : MainAPI() {
         ) {
             this.id = this@toSearchResponse.id
             this.posterUrl = getImageUrl(poster_path)
+            this.score = Score.from10(vote_average)
             this.year = first_air_date?.let {
                 Calendar.getInstance().apply {
                     time = it
@@ -110,6 +114,7 @@ open class TmdbProvider : MainAPI() {
         ) {
             this.id = this@toSearchResponse.id
             this.posterUrl = getImageUrl(poster_path)
+            this.score = Score.from10(vote_average)
             this.year = release_date?.let {
                 Calendar.getInstance().apply {
                     time = it
@@ -128,41 +133,39 @@ open class TmdbProvider : MainAPI() {
     }
 
     private suspend fun TvShow.toLoadResponse(): TvSeriesLoadResponse {
-        val episodes = this.seasons?.filter { !disableSeasonZero || (it.season_number ?: 0) != 0 }
-            ?.mapNotNull { season ->
-                season.episodes?.map { episode ->
-                    newEpisode(
-                        TmdbLink(
-                            episode.external_ids?.imdb_id ?: this.external_ids?.imdb_id,
-                            this.id,
-                            episode.episode_number,
-                            episode.season_number,
-                            this.name ?: this.original_name,
-                        ).toJson()
-                    ) {
-                        this.name = episode.name
-                        this.season = episode.season_number
-                        this.episode = episode.episode_number
-                        this.rating = episode.rating
-                        this.description = episode.overview
-                        this.date = episode.air_date?.time
-                        this.posterUrl = getImageUrl(episode.still_path)
-                    }
-                } ?: (1..(season.episode_count ?: 1)).map { episodeNum ->
-                    newEpisode(
-                        TmdbLink(
-                            this.external_ids?.imdb_id,
-                            this.id,
-                            episodeNum,
-                            season.season_number,
-                            this.name ?: this.original_name,
-                        ).toJson()
-                    ) {
-                        this.episode = episodeNum
-                        this.season = season.season_number
-                    }
+        val tvSeasonsService = tmdb.tvSeasonsService()
+        val episodes = mutableListOf<Episode>()
+
+        val validSeasons = this.seasons?.filter { !disableSeasonZero || (it.season_number ?: 0) != 0 } ?: emptyList()
+        for (season in validSeasons) {
+            val seasonNumber = season.season_number ?: continue
+
+            val response: Response<TvSeason> = tmdb.tvSeasonsService()
+                .season(this.id, seasonNumber, "external_ids,images,episodes")
+                .awaitResponse()
+
+            val fullSeason = response.body() ?: continue
+
+            fullSeason.episodes?.forEach { episode ->
+                episodes += newEpisode(
+                    TmdbLink(
+                        episode.external_ids?.imdb_id ?: this.external_ids?.imdb_id,
+                        this.id,
+                        episode.episode_number,
+                        episode.season_number,
+                        this.name ?: this.original_name
+                    ).toJson()
+                ) {
+                    this.name = episode.name
+                    this.season = episode.season_number
+                    this.episode = episode.episode_number
+                    this.score = Score.from10(episode.vote_average)
+                    this.description = episode.overview
+                    this.date = episode.air_date?.time
+                    this.posterUrl = getImageUrl(episode.still_path)
                 }
-            }?.flatten() ?: listOf()
+            }
+        }
 
         return newTvSeriesLoadResponse(
             this.name ?: this.original_name,
@@ -178,16 +181,13 @@ open class TmdbProvider : MainAPI() {
             }
             plot = overview
             addImdbId(external_ids?.imdb_id)
-
             tags = genres?.mapNotNull { it.name }
             duration = episode_run_time?.average()?.toInt()
-            // score = Score.from10(this@toLoadResponse.rating) No docs on this?
+            score = Score.from10(vote_average)
             addTrailer(videos.toTrailers())
-
             recommendations = (this@toLoadResponse.recommendations
                 ?: this@toLoadResponse.similar)?.results?.map { it.toSearchResponse() }
             addActors(credits?.cast?.toList().toActors())
-
             contentRating = fetchContentRating(id, "US")
         }
     }
@@ -225,7 +225,7 @@ open class TmdbProvider : MainAPI() {
             addImdbId(external_ids?.imdb_id)
             tags = genres?.mapNotNull { it.name }
             duration = runtime
-            // score = Score.from10(this@toLoadResponse.rating) No docs on this?
+            score = Score.from10(vote_average)
             addTrailer(videos.toTrailers())
 
             recommendations = (this@toLoadResponse.recommendations
@@ -396,7 +396,7 @@ open class TmdbProvider : MainAPI() {
         } else {
             loadFromTmdb(id)?.let { return it }
             if (isTvSeries) {
-                tmdb.tvService().externalIds(id, "en-US").awaitResponse().body()?.imdb_id?.let {
+                tmdb.tvService().externalIds(id).awaitResponse().body()?.imdb_id?.let {
                     val fromImdb = loadFromImdb(it)
                     val result = if (fromImdb == null) {
                         val details = tmdb.tvService().tv(id, "en-US").awaitResponse().body()
@@ -407,7 +407,7 @@ open class TmdbProvider : MainAPI() {
                     result
                 }
             } else {
-                tmdb.moviesService().externalIds(id, "en-US").awaitResponse()
+                tmdb.moviesService().externalIds(id).awaitResponse()
                     .body()?.imdb_id?.let { loadFromImdb(it) }
             }
         }

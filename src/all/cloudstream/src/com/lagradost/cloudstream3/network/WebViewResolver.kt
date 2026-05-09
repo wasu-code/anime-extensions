@@ -5,7 +5,11 @@ import android.content.Context
 import android.net.http.SslError
 import android.os.Handler
 import android.os.Looper
-import android.webkit.*
+import android.webkit.SslErrorHandler
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import com.lagradost.api.Log
 import com.lagradost.api.getContext
 import com.lagradost.cloudstream3.USER_AGENT
@@ -35,6 +39,54 @@ import java.net.URI
  * @param scriptCallback will be called with the result from custom js
  * @param timeout close webview after timeout
  * */
+// WSU -->
+//expect class WebViewResolver(
+//    interceptUrl: Regex,
+//    additionalUrls: List<Regex> = emptyList(),
+//    userAgent: String? = USER_AGENT,
+//    useOkhttp: Boolean = true,
+//    script: String? = null,
+//    scriptCallback: ((String) -> Unit)? = null,
+//    timeout: Long = DEFAULT_TIMEOUT
+//) : Interceptor {
+//    companion object {
+//        val DEFAULT_TIMEOUT: Long
+//        var webViewUserAgent: String?
+//    }
+//
+//    /**
+//     * @param requestCallBack asynchronously return matched requests by either interceptUrl or additionalUrls. If true, destroy WebView.
+//     * @return the final request (by interceptUrl) and all the collected urls (by additionalUrls).
+//     * */
+//    suspend fun resolveUsingWebView(
+//        url: String,
+//        referer: String? = null,
+//        method: String = "GET",
+//        requestCallBack: (Request) -> Boolean = { false },
+//    ) : Pair<Request?, List<Request>>
+//
+//    /**
+//     * @param requestCallBack asynchronously return matched requests by either interceptUrl or additionalUrls. If true, destroy WebView.
+//     * @return the final request (by interceptUrl) and all the collected urls (by additionalUrls).
+//     * */
+//    suspend fun resolveUsingWebView(
+//        url: String,
+//        referer: String? = null,
+//        headers: Map<String, String> = emptyMap(),
+//        method: String = "GET",
+//        requestCallBack: (Request) -> Boolean = { false },
+//    ) : Pair<Request?, List<Request>>
+//
+//    /**
+//     * @param requestCallBack asynchronously return matched requests by either interceptUrl or additionalUrls. If true, destroy WebView.
+//     * @return the final request (by interceptUrl) and all the collected urls (by additionalUrls).
+//     * */
+//    suspend fun resolveUsingWebView(
+//        request: Request,
+//        requestCallBack: (Request) -> Boolean = { false }
+//    ): Pair<Request?, List<Request>>
+//}
+
 class WebViewResolver constructor(
     val interceptUrl: Regex,
     val additionalUrls: List<Regex> = emptyList(),
@@ -315,3 +367,5 @@ fun Response.toWebResourceResponse(): WebResourceResponse {
         WebResourceResponse("application/octet-stream", null, this.body.byteStream())
     }
 }
+
+// WSU <--

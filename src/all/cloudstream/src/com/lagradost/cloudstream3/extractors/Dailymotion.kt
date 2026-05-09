@@ -1,13 +1,16 @@
 package com.lagradost.cloudstream3.extractors
 
+// WSU -->
+//import com.google.gson.Gson
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.Serializable
+// WSU <--
 import com.lagradost.cloudstream3.SubtitleFile
 import com.lagradost.cloudstream3.app
 import com.lagradost.cloudstream3.newSubtitleFile
 import com.lagradost.cloudstream3.utils.ExtractorApi
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.M3u8Helper.Companion.generateM3u8
-import kotlinx.serialization.Serializable
 import java.net.URI
 
 
@@ -25,10 +28,12 @@ open class Dailymotion : ExtractorApi() {
 
     private val videoIdRegex = "^[kx][a-zA-Z0-9]+$".toRegex()
 
+    // WSU -->
     private val json = Json {
         ignoreUnknownKeys = true
         isLenient = true
     }
+    // WSU <--
 
     override suspend fun getUrl(
         url: String,
@@ -41,7 +46,12 @@ open class Dailymotion : ExtractorApi() {
         val metaDataUrl = "$baseUrl/player/metadata/video/$id"
 
         val response = app.get(metaDataUrl, referer = embedUrl).text
+
+        // WSU -->
+        //val gson = Gson()
+        //val meta = gson.fromJson(response, MetaData::class.java)
         val meta = json.decodeFromString<MetaData>(response)
+        // WSU <--
 
         meta.qualities?.get("auto")?.forEach { quality ->
             val videoUrl = quality.url
@@ -87,6 +97,8 @@ open class Dailymotion : ExtractorApi() {
         return generateM3u8(name, streamLink, "").forEach(callback)
     }
 
+
+    // WSU -->
     @Serializable
     data class MetaData(
         val qualities: Map<String, List<Quality>>? = null,
@@ -110,5 +122,6 @@ open class Dailymotion : ExtractorApi() {
         val label: String,
         val urls: List<String>
     )
+    // WSU <--
 
 }
