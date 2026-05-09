@@ -55,21 +55,6 @@ class CloudStreamSettings : AnimeSource, ConfigurableAnimeSource {
         val scope = CoroutineScope(Dispatchers.IO)
         val fm = FilterManager.getInstance(preferences)
 
-        // Check host app compatibility with this extension
-        val clazz = com.google.gson.stream.JsonReader::class.java
-        val methodName = "setStrictness" // available only in gson v2.11+
-        val hasMethod = clazz.methods.any { it.name == methodName }
-        val hostAppName = hostContext.applicationInfo.loadLabel(hostContext.packageManager)
-        if (!hasMethod) {
-            newPreference(screen.context) {
-                summary = """
-                    Your host app ($hostAppName) uses an outdated version of the GSON library (older than v2.11.0).
-                    Some extensions may not work properly (and throw NoSuchMethodError for setStrictness).
-                """.trimIndent()
-                setIcon(android.R.drawable.ic_dialog_alert)
-            }.also(screen::addPreference)
-        }
-
         val reposPref = EditTextPreference(screen.context).apply {
             key = "REPOS"
             title = "Plugin repositories"
