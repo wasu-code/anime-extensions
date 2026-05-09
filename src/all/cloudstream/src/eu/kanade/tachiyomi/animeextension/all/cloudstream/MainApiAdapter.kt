@@ -9,6 +9,7 @@ import com.lagradost.cloudstream3.AcraApplication.Companion.setKey
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.MainPageRequest
 import com.lagradost.cloudstream3.Prerelease
+import com.lagradost.cloudstream3.utils.ExtractorLink
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
 import eu.kanade.tachiyomi.animesource.model.AnimesPage
@@ -128,7 +129,7 @@ open class MainApiAdapter(
     // === Video Streams ===
 
     override suspend fun getVideoList(episode: SEpisode): List<Video> {
-        val videos = mutableListOf<Video>()
+        val videos = mutableListOf<ExtractorLink>()
         val subs = mutableListOf<Track>()
         runBlocking {
             try {
@@ -139,14 +140,15 @@ open class MainApiAdapter(
                         subs.add(subtitleFile.toTrack())
                     },
                     callback = { extractorLink ->
-                        videos.add(extractorLink.toVideo())
+                        videos.add(extractorLink)
                     },
                 )
             } catch (_: NotImplementedError) {
                 throw UnsupportedOperationException("Not implemented")
             }
         }
-        return videos
+
+        return videos.map { it.toVideo(subs) }
     }
 
     override fun videoListParse(response: Response): List<Video> = throw UnsupportedOperationException()

@@ -123,12 +123,13 @@ fun SearchResponseList.toAnimePage(): AnimesPage {
     )
 }
 
-fun ExtractorLink.toVideo(): Video {
+fun ExtractorLink.toVideo(subs: List<Track> = emptyList()): Video {
     return Video(
         url = url,
         quality = quality.toString(),
         videoUrl = url,
         headers = headers.toHeaders(),
+        subtitleTracks = subs,
     )
 }
 
