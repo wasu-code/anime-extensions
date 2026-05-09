@@ -11,6 +11,10 @@ import com.lagradost.cloudstream3.newSubtitleFile
 import com.lagradost.cloudstream3.utils.ExtractorApi
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.M3u8Helper.Companion.generateM3u8
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.net.URI
 
 
@@ -50,7 +54,23 @@ open class Dailymotion : ExtractorApi() {
         // WSU -->
         //val gson = Gson()
         //val meta = gson.fromJson(response, MetaData::class.java)
-        val meta = json.decodeFromString<MetaData>(response)
+        val root = json.parseToJsonElement(response).jsonObject
+        val sub = root["subtitles"]?.jsonObject
+        val enable = sub?.get("enable")?.jsonPrimitive?.booleanOrNull ?: false
+
+        val meta = MetaData(
+            qualities = root["qualities"]?.let {
+                runCatching {
+                    json.decodeFromJsonElement<Map<String, List<Quality>>>(it)
+                }.getOrNull()
+            },
+            subtitles = if (enable) runCatching {
+                SubtitlesWrapper(
+                    true,
+                    sub?.get("data")?.let { json.decodeFromJsonElement(it) }
+                )
+            }.getOrNull() else null
+        )
         // WSU <--
 
         meta.qualities?.get("auto")?.forEach { quality ->
