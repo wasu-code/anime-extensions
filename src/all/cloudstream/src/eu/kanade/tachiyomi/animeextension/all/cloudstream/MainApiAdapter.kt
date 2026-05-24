@@ -5,7 +5,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.preference.EditTextPreference
 import androidx.preference.Preference
-import com.lagradost.cloudstream3.AcraApplication.Companion.setKey
+import com.lagradost.cloudstream3.CloudStreamApp
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.MainPageRequest
 import com.lagradost.cloudstream3.Prerelease
@@ -18,13 +18,12 @@ import eu.kanade.tachiyomi.animesource.model.SEpisode
 import eu.kanade.tachiyomi.animesource.model.Track
 import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.animesource.online.AnimeHttpSource
-import kotlinx.coroutines.runBlocking
 import okhttp3.Request
 import okhttp3.Response
 
 /**
- * Adapter: Wraps a Cloudstream [MainAPI] provider so it can be used
- * as a Aniyomi [AnimeHttpSource] at runtime.
+ * Adapter: Wraps a CloudStream [MainAPI] provider so it can be used
+ * as an Aniyomi [AnimeHttpSource] at runtime.
  */
 open class MainApiAdapter(
     private val api: MainAPI,
@@ -42,13 +41,11 @@ open class MainApiAdapter(
     override suspend fun getPopularAnime(page: Int): AnimesPage {
         if (!api.hasMainPage) throw UnsupportedOperationException("This extension doesn't have main page")
 
-        return runBlocking {
-            try {
-                api.getMainPage(page, MainPageRequest("popular", baseUrl, false))
-                    ?.toAnimePage() as AnimesPage
-            } catch (_: NotImplementedError) {
-                throw UnsupportedOperationException("Not implemented")
-            }
+        return try {
+            api.getMainPage(page, MainPageRequest("popular", baseUrl, false))
+                ?.toAnimePage() as AnimesPage
+        } catch (_: NotImplementedError) {
+            throw UnsupportedOperationException("Not implemented")
         }
     }
 
@@ -63,12 +60,10 @@ open class MainApiAdapter(
         query: String,
         filters: AnimeFilterList,
     ): AnimesPage {
-        return runBlocking {
-            try {
-                api.search(query, page)?.toAnimePage() ?: AnimesPage(emptyList(), false)
-            } catch (_: NotImplementedError) {
-                throw UnsupportedOperationException("Not implemented")
-            }
+        return try {
+            api.search(query, page)?.toAnimePage() ?: AnimesPage(emptyList(), false)
+        } catch (_: NotImplementedError) {
+            throw UnsupportedOperationException("Not implemented")
         }
     }
 
@@ -83,12 +78,10 @@ open class MainApiAdapter(
     // === Anime Details ===
 
     override suspend fun getAnimeDetails(anime: SAnime): SAnime {
-        val details = runBlocking {
-            try {
-                api.load(anime.url)
-            } catch (_: NotImplementedError) {
-                throw UnsupportedOperationException("Not implemented")
-            }
+        val details = try {
+            api.load(anime.url)
+        } catch (_: NotImplementedError) {
+            throw UnsupportedOperationException("Not implemented")
         }
         return details?.toSAnime() ?: SAnime.create()
     }
@@ -106,12 +99,10 @@ open class MainApiAdapter(
     // === Episode List ===
 
     override suspend fun getEpisodeList(anime: SAnime): List<SEpisode> {
-        val loadResponse = runBlocking {
-            try {
-                api.load(anime.url)
-            } catch (_: NotImplementedError) {
-                throw UnsupportedOperationException("Not implemented")
-            }
+        val loadResponse = try {
+            api.load(anime.url)
+        } catch (_: NotImplementedError) {
+            throw UnsupportedOperationException("Not implemented")
         }
         return loadResponse?.toSEpisodeList() ?: emptyList()
     }
@@ -131,21 +122,19 @@ open class MainApiAdapter(
     override suspend fun getVideoList(episode: SEpisode): List<Video> {
         val videos = mutableListOf<ExtractorLink>()
         val subs = mutableListOf<Track>()
-        runBlocking {
-            try {
-                api.loadLinks(
-                    episode.url,
-                    isCasting = false,
-                    subtitleCallback = { subtitleFile ->
-                        subs.add(subtitleFile.toTrack())
-                    },
-                    callback = { extractorLink ->
-                        videos.add(extractorLink)
-                    },
-                )
-            } catch (_: NotImplementedError) {
-                throw UnsupportedOperationException("Not implemented")
-            }
+        try {
+            api.loadLinks(
+                episode.url,
+                isCasting = false,
+                subtitleCallback = { subtitleFile ->
+                    subs.add(subtitleFile.toTrack())
+                },
+                callback = { extractorLink ->
+                    videos.add(extractorLink)
+                },
+            )
+        } catch (_: NotImplementedError) {
+            throw UnsupportedOperationException("Not implemented")
         }
 
         return videos.map { it.toVideo(subs) }
@@ -164,7 +153,7 @@ class ConfigurableMainApiAdapter(val api: MainAPI) : MainApiAdapter(api), Config
                 Insert key=value pairs. One per line.
             """.trimIndent()
 
-            setOnPreferenceChangeListener { pref, newValue ->
+            setOnPreferenceChangeListener { _, newValue ->
                 (newValue as String).split("\n").forEach { line ->
                     if (line.isBlank()) return@forEach
                     val parts = line.split("=", limit = 2)
@@ -182,7 +171,7 @@ class ConfigurableMainApiAdapter(val api: MainAPI) : MainApiAdapter(api), Config
                         return@forEach
                     }
 
-                    setKey(key, value)
+                    CloudStreamApp.setKey(key, value)
                 }
 
                 Toast.makeText(screen.context, "Restart app to apply", Toast.LENGTH_SHORT).show()
