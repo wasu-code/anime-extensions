@@ -1,4 +1,4 @@
-def libVersion = "v0.26.0"
+def libVersion = "v0.26.3"
 
 ext {
     extName = 'NewPipe'
