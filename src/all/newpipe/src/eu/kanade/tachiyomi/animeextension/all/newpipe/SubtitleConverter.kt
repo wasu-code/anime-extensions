@@ -25,7 +25,7 @@ class SubtitleConverter {
                         text = ""
                     }
                 }
-                XmlPullParser.TEXT -> text += parser.text
+                XmlPullParser.TEXT -> text += parser.text.trim() + " "
                 XmlPullParser.END_TAG -> {
                     if (parser.name == "p") {
                         sb.appendLine(index++)
