@@ -2,21 +2,21 @@ package keiyoushi.utils
 
 import android.app.Application
 import android.content.SharedPreferences
-import eu.kanade.tachiyomi.source.online.HttpSource
+import eu.kanade.tachiyomi.animesource.online.AnimeHttpSource
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 /**
  * Returns the [SharedPreferences] associated with current source id
  */
-inline fun HttpSource.getPreferences(
+inline fun AnimeHttpSource.getPreferences(
     migration: SharedPreferences.() -> Unit = { },
 ): SharedPreferences = getPreferences(id).also(migration)
 
 /**
  * Lazily returns the [SharedPreferences] associated with current source id
  */
-inline fun HttpSource.getPreferencesLazy(
+inline fun AnimeHttpSource.getPreferencesLazy(
     crossinline migration: SharedPreferences.() -> Unit = { }
 ) = lazy { getPreferences(migration) }
 
