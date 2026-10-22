@@ -16,7 +16,7 @@ android-gradle = { module = "com.android.tools.build:gradle", version.ref = "and
 kotlin-gradle = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 
 # Extension API (stubs only; the app provides the implementation)
-tachiyomix = { module = "com.github.mihonapp:tachiyomix", version = "1.6.0" }
+aniyomi-lib = { module = "com.github.komikku-app:aniyomi-extensions-lib", version = "f5961b5dfb" }
 
 # Host-provided libraries
 kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "kotlin" }
@@ -49,5 +49,5 @@ common = [
     "kotlin-stdlib", "coroutines-core", "coroutines-android", "injekt",
     "kotlin-protobuf", "kotlin-json", "kotlin-json-okio",
     "jsoup", "jspecify", "okhttp", "okhttp-brotli", "okhttp-zstd",
-    "tachiyomix",
+    "aniyomi-lib",
 ]
