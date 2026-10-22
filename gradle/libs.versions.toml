@@ -1,0 +1,53 @@
+[versions]
+android-gradle = "9.4.1"
+kotlin = "2.4.10"
+# Versions below match what Mihon v0.20.0 (the host app) ships. We compile against them (compileOnly)
+# and the app provides them at runtime.
+coroutines = "1.11.0"
+serialization = "1.11.0"
+okhttp = "5.4.0"
+jsoup = "1.22.2"
+preferenceKtxVersion = "1.2.1"
+documentfileVersion = "1.1.0"
+
+[libraries]
+# Used by the build itself (gradle/build-logic and the root build)
+android-gradle = { module = "com.android.tools.build:gradle", version.ref = "android-gradle" }
+kotlin-gradle = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+
+# Extension API (stubs only; the app provides the implementation)
+tachiyomix = { module = "com.github.mihonapp:tachiyomix", version = "1.6.0" }
+
+# Host-provided libraries
+kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "kotlin" }
+kotlin-protobuf = { module = "org.jetbrains.kotlinx:kotlinx-serialization-protobuf", version.ref = "serialization" }
+kotlin-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
+kotlin-json-okio = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json-okio", version.ref = "serialization" }
+coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
+injekt = { module = "com.github.mihonapp:injekt", version = "91edab2317" }
+jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
+# Kotlin 2.x needs this to read type-use annotations in jsoup's API signatures
+jspecify = { module = "org.jspecify:jspecify", version = "1.0.1" }
+okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+okhttp-brotli = { module = "com.squareup.okhttp3:okhttp-brotli", version.ref = "okhttp" }
+okhttp-zstd = { module = "com.squareup.okhttp3:okhttp-zstd", version.ref = "okhttp" }
+
+# Optional, not part of the `common` bundle: add with compileOnly(libs.xxx) where needed
+preference-ktx = { group = "androidx.preference", name = "preference-ktx", version.ref = "preferenceKtxVersion" }
+documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfileVersion" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "android-gradle" }
+android-library = { id = "com.android.library", version.ref = "android-gradle" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-samWithReceiver = { id = "org.jetbrains.kotlin.plugin.sam.with.receiver", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+
+[bundles]
+common = [
+    "kotlin-stdlib", "coroutines-core", "coroutines-android", "injekt",
+    "kotlin-protobuf", "kotlin-json", "kotlin-json-okio",
+    "jsoup", "jspecify", "okhttp", "okhttp-brotli", "okhttp-zstd",
+    "tachiyomix",
+]
